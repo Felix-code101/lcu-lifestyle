@@ -215,14 +215,17 @@ export function useCampusChat() {
             .select()
             .single();
 
-          if (!error && data) {
+          if (error) {
+            console.error('Supabase campus message failed:', error);
+          } else {
+            console.log('Campus message record saved successfully to Supabase:', data);
             // Replace temporary local ID with server record if needed
             setMessages((prev) =>
               prev.map((m) => (m.id === localMsg.id ? (data as CampusChatMessage) : m))
             );
           }
         } catch (dbErr) {
-          console.warn('Supabase campus_messages insert failed, retained in local storage', dbErr);
+          console.error('Unexpected error saving campus message:', dbErr);
         }
       }
 

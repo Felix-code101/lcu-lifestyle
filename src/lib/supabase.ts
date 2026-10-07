@@ -101,16 +101,80 @@ export const DEFAULT_CAMPUS_STUDENTS: RegisteredStudent[] = [
 
 const LOCAL_STORAGE_STUDENTS_KEY = 'lu_registered_students_db';
 
-// Get all registered students from Supabase or localStorage fallback
+export interface StudentRegistrationData {
+  matricNo?: string;
+  matric_no?: string;
+  fullName?: string;
+  name?: string;
+  department?: string;
+  level?: string;
+  status?: string;
+  cash?: number;
+  classesAttended?: number;
+  classes_attended?: number;
+}
+
+// Explicit Supabase registration function matching schema requirements
+export const registerStudentToDatabase = async (playerData: StudentRegistrationData) => {
+  if (!supabase) {
+    console.warn('Supabase not configured, student saved locally');
+    return null;
+  }
+
+  try {
+    const payload = {
+      matric_no: playerData.matricNo || playerData.matric_no,
+      full_name: playerData.fullName || playerData.name,
+      department: playerData.department || 'Computer Science',
+      level: playerData.level || '100 Level (Fresher)',
+      status: playerData.status || 'Fresher',
+      cash: playerData.cash ?? 20000,
+      classes_attended: playerData.classesAttended ?? playerData.classes_attended ?? 0,
+      is_online: true,
+      last_seen: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('students')
+      .upsert(payload, { onConflict: 'matric_no' })
+      .select();
+
+    if (error) {
+      console.error('Supabase registration failed:', error);
+      return null;
+    } else {
+      console.log('Student record saved successfully to Supabase:', data);
+      return data;
+    }
+  } catch (err) {
+    console.error('Unexpected error saving student:', err);
+    return null;
+  }
+};
+
+// Get all registered students from Supabase (students table) or localStorage fallback
 export async function getRegisteredStudents(): Promise<RegisteredStudent[]> {
   if (supabase) {
     try {
       const { data, error } = await supabase
-        .from('registered_students')
+        .from('students')
         .select('*')
-        .order('createdAt', { ascending: false });
+        .order('created_at', { ascending: false });
+
       if (!error && data && data.length > 0) {
-        return data as RegisteredStudent[];
+        return data.map((row: any) => ({
+          id: row.id || `student_${row.matric_no?.replace(/\//g, '_')}`,
+          username: row.full_name || 'Student',
+          matricNo: row.matric_no,
+          department: row.department || 'Computer Science',
+          level: row.level || '100 Level (Fresher)',
+          status: (row.status?.toLowerCase().includes('nepo') ? 'nepo' : 'lapo') as SocioeconomicStatus,
+          balance: row.cash ?? 20000,
+          cgpa: row.cgpa ?? null,
+          createdAt: row.created_at || new Date().toISOString(),
+          lastActive: row.last_seen || new Date().toISOString(),
+          isOnline: row.is_online ?? true,
+        }));
       }
     } catch (e) {
       console.warn('Failed to fetch students from Supabase, falling back to local database', e);
@@ -144,7 +208,7 @@ export async function saveRegisteredStudent(student: RegisteredStudent): Promise
   // Update local storage first
   try {
     const current = await getRegisteredStudents();
-    const existingIndex = current.findIndex((s) => s.id === student.id || s.username.toLowerCase() === student.username.toLowerCase());
+    const existingIndex = current.findIndex((s) => s.id === student.id || s.matricNo === student.matricNo || s.username.toLowerCase() === student.username.toLowerCase());
     let updated: RegisteredStudent[];
     if (existingIndex >= 0) {
       updated = [...current];
@@ -157,14 +221,16 @@ export async function saveRegisteredStudent(student: RegisteredStudent): Promise
     console.error('Error updating student in localStorage', e);
   }
 
-  // Persist to Supabase if available
-  if (supabase) {
-    try {
-      await supabase.from('registered_students').upsert(student, { onConflict: 'id' });
-    } catch (e) {
-      console.warn('Failed to upsert student in Supabase', e);
-    }
-  }
+  // Persist to Supabase students table
+  await registerStudentToDatabase({
+    matricNo: student.matricNo,
+    fullName: student.username,
+    department: student.department,
+    level: student.level,
+    status: student.status === 'nepo' ? 'Nepo Baby' : (student.status === 'lapo' ? 'Lapo Hustler' : student.status),
+    cash: student.balance,
+    classesAttended: 0,
+  });
 }
 
 // Update student socioeconomic status (Admin function)
@@ -176,7 +242,7 @@ export async function updateStudentSocioeconomicStatus(
   try {
     const current = await getRegisteredStudents();
     const updated = current.map((s) => {
-      if (s.id === studentId) {
+      if (s.id === studentId || s.matricNo === studentId) {
         return {
           ...s,
           status: newStatus,
@@ -193,9 +259,14 @@ export async function updateStudentSocioeconomicStatus(
 
   if (supabase) {
     try {
-      const updatePayload: Record<string, any> = { status: newStatus };
-      if (newBalance !== undefined) updatePayload.balance = newBalance;
-      await supabase.from('registered_students').update(updatePayload).eq('id', studentId);
+      const updatePayload: Record<string, any> = {
+        status: newStatus === 'nepo' ? 'Nepo Baby' : 'Lapo Hustler',
+      };
+      if (newBalance !== undefined) updatePayload.cash = newBalance;
+      await supabase
+        .from('students')
+        .update(updatePayload)
+        .or(`id.eq.${studentId},matric_no.eq.${studentId}`);
     } catch (e) {
       console.warn('Failed to update student status in Supabase', e);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import type { SocioeconomicStatus } from '../types/game';
-import { getRegisteredStudents, saveRegisteredStudent } from '../lib/supabase';
+import { getRegisteredStudents, saveRegisteredStudent, registerStudentToDatabase } from '../lib/supabase';
 import {
   GraduationCap,
   Crown,
@@ -116,6 +116,17 @@ export const MatriculationModal: React.FC = () => {
 
     const initialBalance = rollResult === 'nepo' ? 250000 : 15000;
     const initialMood = rollResult === 'nepo' ? 100 : 85;
+
+    // Explicitly upsert student to Supabase backend
+    await registerStudentToDatabase({
+      matricNo,
+      fullName: username.trim(),
+      department,
+      level: '100 Level (Fresher)',
+      status: rollResult === 'nepo' ? 'Nepo Baby' : 'Lapo Hustler',
+      cash: initialBalance,
+      classesAttended: 0,
+    });
 
     // Save to backend / local registry database
     await saveRegisteredStudent({

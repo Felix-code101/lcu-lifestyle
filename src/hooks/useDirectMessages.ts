@@ -132,8 +132,20 @@ export function useDirectMessages({ targetMatric, targetUsername: _targetUsernam
 
         if (!error && data && isMounted) {
           if (data.length > 0) {
-            setMessages(data);
-            persistMessages(data);
+            const mapped: DirectMessage[] = data.map((row: any) => ({
+              id: row.id,
+              sender_matric: row.sender_matric,
+              recipient_matric: row.recipient_matric,
+              sender_name: row.sender_name,
+              content: row.content,
+              metadata: {
+                type: row.action_type || 'text',
+                amount: row.amount || 0,
+              },
+              created_at: row.created_at,
+            }));
+            setMessages(mapped);
+            persistMessages(mapped);
           }
         }
       } catch (err) {
@@ -155,7 +167,19 @@ export function useDirectMessages({ targetMatric, targetUsername: _targetUsernam
               table: 'direct_messages',
             },
             (payload) => {
-              const msg = payload.new as DirectMessage;
+              const row = payload.new as any;
+              const msg: DirectMessage = {
+                id: row.id,
+                sender_matric: row.sender_matric,
+                recipient_matric: row.recipient_matric,
+                sender_name: row.sender_name,
+                content: row.content,
+                metadata: {
+                  type: row.action_type || 'text',
+                  amount: row.amount || 0,
+                },
+                created_at: row.created_at,
+              };
               if (
                 (msg.sender_matric === targetMatric && msg.recipient_matric === myMatric) ||
                 (msg.sender_matric === myMatric && msg.recipient_matric === targetMatric)
@@ -219,25 +243,39 @@ export function useDirectMessages({ targetMatric, targetUsername: _targetUsernam
       // 3. Persist to Supabase if available
       if (supabase) {
         try {
+          const payload = {
+            sender_matric: localMsg.sender_matric,
+            recipient_matric: localMsg.recipient_matric,
+            sender_name: localMsg.sender_name,
+            content: localMsg.content,
+            action_type: localMsg.metadata?.type || 'chat',
+            amount: localMsg.metadata?.amount || 0,
+          };
+
           const { data, error } = await supabase
             .from('direct_messages')
-            .insert({
-              sender_matric: localMsg.sender_matric,
-              recipient_matric: localMsg.recipient_matric,
-              sender_name: localMsg.sender_name,
-              content: localMsg.content,
-              metadata: localMsg.metadata,
-            })
+            .insert(payload)
             .select()
             .single();
 
-          if (!error && data) {
+          if (error) {
+            console.error('Supabase direct message failed:', error);
+          } else {
+            console.log('Direct message record saved successfully to Supabase:', data);
             setMessages((prev) =>
-              prev.map((m) => (m.id === localMsg.id ? (data as DirectMessage) : m))
+              prev.map((m) =>
+                m.id === localMsg.id
+                  ? {
+                      ...localMsg,
+                      id: (data as any).id,
+                      created_at: (data as any).created_at || localMsg.created_at,
+                    }
+                  : m
+              )
             );
           }
         } catch (dbErr) {
-          console.warn('Supabase direct_messages insert error, stored locally', dbErr);
+          console.error('Unexpected error saving direct message:', dbErr);
         }
       }
 

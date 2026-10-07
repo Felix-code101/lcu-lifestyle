@@ -101,6 +101,9 @@ function createBillboardTexture(bb: BillboardAd): THREE.CanvasTexture {
     }
   }
   const texture = new THREE.CanvasTexture(canvas);
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
   return texture;
 }
@@ -129,22 +132,69 @@ export const CampusMap3D: React.FC = () => {
   } | null>(null);
 
   // Three.js References
-  const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<MapControls | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const activeTransitRef = useRef<ActiveTransit | null>(null);
+  const transitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completeTransitRef = useRef<((transit: ActiveTransit) => void) | null>(null);
 
   // Recenter camera onto central Senate Building
   const handleRecenter = useCallback(() => {
     if (controlsRef.current && cameraRef.current) {
       controlsRef.current.target.set(0, 0, 0);
       cameraRef.current.position.set(38, 52, 38);
-      cameraRef.current.zoom = 1;
       cameraRef.current.updateProjectionMatrix();
       controlsRef.current.update();
       addToast('Campus view centered onto Senate Building', 'info');
     }
   }, [addToast]);
+
+  // Guaranteed Transit Completion & Epsilon Handshake
+  const completeTransit = useCallback(
+    (transit: ActiveTransit) => {
+      // Clear safety net timeout
+      if (transitTimeoutRef.current) {
+        clearTimeout(transitTimeoutRef.current);
+        transitTimeoutRef.current = null;
+      }
+
+      if (!activeTransitRef.current) return;
+
+      const arrivedLandmark = transit.landmark;
+      const arrivedMode = transit.mode;
+      const destinationKey = arrivedLandmark.destinationScene || 'home_hostel';
+
+      // 1. Immediately force 100% progress on HUD
+      setTransitHUD((prev) => (prev ? { ...prev, progress: 100 } : null));
+
+      // 2. Clean up 3D meshes safely from scene
+      try {
+        if (sceneRef.current) {
+          if (transit.entityGroup) sceneRef.current.remove(transit.entityGroup);
+          if (transit.destMarker) sceneRef.current.remove(transit.destMarker);
+        }
+      } catch (err) {
+        console.warn('Mesh cleanup warning:', err);
+      }
+      activeTransitRef.current = null;
+
+      // 3. Apply stats effects and record visited landmark
+      applyTransitEffects(arrivedMode, arrivedLandmark.name);
+      setLastVisitedLandmarkId(arrivedLandmark.id);
+
+      // 4. Force unblock UI (isTraveling = false) and navigate to destination scene
+      setTimeout(() => {
+        setTransitHUD(null);
+        navigateToLocation(destinationKey);
+      }, 200);
+    },
+    [applyTransitEffects, navigateToLocation, setLastVisitedLandmarkId]
+  );
+
+  useEffect(() => {
+    completeTransitRef.current = completeTransit;
+  }, [completeTransit]);
 
   // Start Trekking or Keke transit
   const handleStartTransit = useCallback(
@@ -187,7 +237,7 @@ export const CampusMap3D: React.FC = () => {
       // Add a luminous pulsing arrival dropoff ring at destination
       const destPos = waypoints[waypoints.length - 1];
       const destMarker = new THREE.Group();
-      destMarker.position.set(destPos.x, 0.08, destPos.z);
+      destMarker.position.set(destPos.x, 0.10, destPos.z);
       const ringGeo = new THREE.RingGeometry(0.8, 1.4, 24);
       ringGeo.rotateX(-Math.PI / 2);
       const ringMesh = new THREE.Mesh(
@@ -197,6 +247,10 @@ export const CampusMap3D: React.FC = () => {
           side: THREE.DoubleSide,
           transparent: true,
           opacity: 0.85,
+          polygonOffset: true,
+          polygonOffsetFactor: -2.0,
+          polygonOffsetUnits: -6.0,
+          depthWrite: false,
         })
       );
       destMarker.add(ringMesh);
@@ -223,6 +277,17 @@ export const CampusMap3D: React.FC = () => {
         progress: 0,
       });
 
+      // Guaranteed Fallback Timeout Safety Net (4.5s max duration)
+      if (transitTimeoutRef.current) {
+        clearTimeout(transitTimeoutRef.current);
+      }
+      transitTimeoutRef.current = setTimeout(() => {
+        if (activeTransitRef.current) {
+          console.warn('Transit fallback timeout safety net triggered (4.5s limit reached)');
+          completeTransitRef.current?.(activeTransitRef.current);
+        }
+      }, 4500);
+
       addToast(
         mode === 'trek'
           ? `🚶 Started trekking to ${landmarkToTravel.name}...`
@@ -245,23 +310,19 @@ export const CampusMap3D: React.FC = () => {
     sceneRef.current = scene;
     scene.background = new THREE.Color('#ffffff');
 
-    // 2. Orthographic Camera with ~55° downward isometric angle
+    // 2. Perspective Camera with near: 0.5, far: 500, fov: 35 for optimal depth precision
     const aspect = width / height;
-    const frustumSize = 46;
-    const camera = new THREE.OrthographicCamera(
-      (-frustumSize * aspect) / 2,
-      (frustumSize * aspect) / 2,
-      frustumSize / 2,
-      -frustumSize / 2,
-      -100,
-      1000
-    );
+    const camera = new THREE.PerspectiveCamera(35, aspect, 0.5, 500);
     cameraRef.current = camera;
     camera.position.set(38, 52, 38);
     camera.lookAt(0, 0, 0);
 
-    // 3. Renderer with clean, subtle soft shadows
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // 3. Renderer with antialias and logarithmicDepthBuffer to eliminate z-fighting
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      logarithmicDepthBuffer: true,
+      powerPreference: 'high-performance',
+    });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -276,8 +337,8 @@ export const CampusMap3D: React.FC = () => {
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.screenSpacePanning = false; // pan along ground XZ
-    controls.minZoom = 0.55;
-    controls.maxZoom = 2.4;
+    controls.minDistance = 20;
+    controls.maxDistance = 150;
     controls.maxPolarAngle = Math.PI / 2 - 0.1;
 
     // 5. Lighting: Soft ambient light + clean directional sun
@@ -296,8 +357,8 @@ export const CampusMap3D: React.FC = () => {
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
     dirLight.shadow.camera.bottom = -d;
-    dirLight.shadow.bias = -0.00005;
-    dirLight.shadow.normalBias = 0.04;
+    dirLight.shadow.bias = -0.0001;
+    dirLight.shadow.normalBias = 0.03;
     scene.add(dirLight);
 
     // Soft sky fill light for architectural clarity
@@ -367,83 +428,85 @@ export const CampusMap3D: React.FC = () => {
 
       // Handle Live 3D Transit along Campus Roads
       if (activeTransitRef.current) {
-        const transit = activeTransitRef.current;
-        transit.elapsed += delta;
-        const rawProgress = Math.min(1.0, transit.elapsed / transit.duration);
+        try {
+          const transit = activeTransitRef.current;
+          transit.elapsed += delta;
+          const rawProgress = Math.min(1.0, transit.elapsed / transit.duration);
 
-        // Smooth linear progression with gentle ease-out braking near destination
-        const progress =
-          rawProgress < 0.85
-            ? rawProgress
-            : 0.85 + (rawProgress - 0.85) * (1 - (rawProgress - 0.85) * 0.5);
+          // Smooth linear progression with gentle ease-out braking near destination
+          const progress = Math.min(
+            1.0,
+            rawProgress < 0.85
+              ? rawProgress
+              : 0.85 + (rawProgress - 0.85) * (1 - (rawProgress - 0.85) * 0.5)
+          );
 
-        // Update progress UI HUD
-        setTransitHUD((prev) => (prev ? { ...prev, progress: Math.round(rawProgress * 100) } : null));
+          // Update progress UI HUD (clamped 0 to 100)
+          const displayProgress = Math.min(100, Math.round(rawProgress * 100));
+          setTransitHUD((prev) => (prev ? { ...prev, progress: displayProgress } : null));
 
-        // Pulse destination dropoff marker
-        if (transit.destMarker) {
-          const pulse = 1.0 + Math.sin(elapsed * 10) * 0.25;
-          transit.destMarker.scale.set(pulse, 1, pulse);
-        }
+          // Pulse destination dropoff marker
+          if (transit.destMarker) {
+            const pulse = 1.0 + Math.sin(elapsed * 10) * 0.25;
+            transit.destMarker.scale.set(pulse, 1, pulse);
+          }
 
-        // Interpolate along curve
-        const pos = transit.curve.getPointAt(progress);
-        transit.entityGroup.position.copy(pos);
+          // Interpolate along curve safely clamped to [0, 1]
+          const clampedT = Math.max(0, Math.min(1.0, progress));
+          const pos = transit.curve.getPointAt(clampedT);
+          transit.entityGroup.position.copy(pos);
 
-        // Point entity facing direction of travel towards upcoming waypoint along road path
-        const lookAheadT = Math.min(1.0, progress + 0.04);
-        const lookTarget = transit.curve.getPointAt(lookAheadT);
-        if (lookTarget.distanceToSquared(pos) > 0.0001) {
-          transit.entityGroup.lookAt(lookTarget.x, pos.y, lookTarget.z);
-        }
-
-        // Advance character or keke animations
-        if (transit.charModel) {
-          transit.charModel.update(delta, elapsed);
-        }
-        if (transit.kekeModel) {
-          transit.kekeModel.update(delta, elapsed, true);
-        }
-
-        // Proximity detection to active billboards along roads
-        billboards.forEach((bb) => {
-          if (bb.isBooked && bb.businessName) {
-            const bbDist = pos.distanceTo(new THREE.Vector3(bb.position[0], 0, bb.position[2]));
-            if (bbDist < 10) {
-              if (!transit.notifiedAds) transit.notifiedAds = new Set();
-              if (!transit.notifiedAds.has(bb.id)) {
-                transit.notifiedAds.add(bb.id);
-                addToast(`📢 Road Signboard: Check out "${bb.businessName}" — ${bb.slogan}!`, 'info');
-              }
+          // Point entity facing direction of travel towards upcoming waypoint along road path
+          if (clampedT < 0.96) {
+            const lookAheadT = Math.min(1.0, clampedT + 0.04);
+            const lookTarget = transit.curve.getPointAt(lookAheadT);
+            const dx = lookTarget.x - pos.x;
+            const dz = lookTarget.z - pos.z;
+            if (dx * dx + dz * dz > 0.0001) {
+              transit.entityGroup.lookAt(lookTarget.x, pos.y, lookTarget.z);
             }
           }
-        });
 
-        // Camera Follow: Keep camera tracking smoothly above/behind moving entity
-        controls.target.lerp(pos, 0.12);
-        const isoOffset = new THREE.Vector3(38, 52, 38);
-        camera.position.copy(controls.target).add(isoOffset);
+          // Advance character or keke animations
+          if (transit.charModel) {
+            transit.charModel.update(delta, elapsed);
+          }
+          if (transit.kekeModel) {
+            transit.kekeModel.update(delta, elapsed, true);
+          }
 
-        // Check Arrival
-        if (rawProgress >= 1.0) {
-          const arrivedLandmark = transit.landmark;
-          const arrivedMode = transit.mode;
+          // Proximity detection to active billboards along roads
+          billboards.forEach((bb) => {
+            if (bb.isBooked && bb.businessName) {
+              const bbDist = pos.distanceTo(new THREE.Vector3(bb.position[0], 0, bb.position[2]));
+              if (bbDist < 10) {
+                if (!transit.notifiedAds) transit.notifiedAds = new Set();
+                if (!transit.notifiedAds.has(bb.id)) {
+                  transit.notifiedAds.add(bb.id);
+                  addToast(`📢 Road Signboard: Check out "${bb.businessName}" — ${bb.slogan}!`, 'info');
+                }
+              }
+            }
+          });
 
-          // Remove meshes from 3D scene
-          scene.remove(transit.entityGroup);
-          if (transit.destMarker) scene.remove(transit.destMarker);
-          activeTransitRef.current = null;
-          setTransitHUD(null);
+          // Camera Follow: Keep camera tracking smoothly above/behind moving entity
+          controls.target.lerp(pos, 0.12);
+          const isoOffset = new THREE.Vector3(38, 52, 38);
+          camera.position.copy(controls.target).add(isoOffset);
 
-          // Apply player stats effects & update visited building
-          applyTransitEffects(arrivedMode, arrivedLandmark.name);
-          setLastVisitedLandmarkId(arrivedLandmark.id);
+          // Transit Completion & Epsilon Check:
+          // Do not rely on strict equality (progress === 1 or exact coordinate match).
+          // If progress >= 0.98 OR remainingDistance < 0.2, immediately force completion
+          const destPos = transit.curve.getPointAt(1.0);
+          const remainingDistance = pos.distanceTo(destPos);
 
-          // Transition to interior scene if building has one
-          if (arrivedLandmark.destinationScene) {
-            setTimeout(() => {
-              navigateToLocation(arrivedLandmark.destinationScene!);
-            }, 750);
+          if (rawProgress >= 0.98 || remainingDistance < 0.2 || transit.elapsed >= transit.duration) {
+            completeTransitRef.current?.(transit);
+          }
+        } catch (transitErr) {
+          console.error('Error during 3D transit animation:', transitErr);
+          if (activeTransitRef.current) {
+            completeTransitRef.current?.(activeTransitRef.current);
           }
         }
       }
@@ -461,7 +524,7 @@ export const CampusMap3D: React.FC = () => {
       const containerH = container.clientHeight;
 
       const newPositions: Badge2DPosition[] = CAMPUS_3D_LANDMARKS.map((lm) => {
-        tempVec.set(lm.position[0], lm.position[1] + lm.badgeHeight, lm.position[2]);
+        tempVec.set(lm.position[0], lm.position[1] + 0.12 + lm.badgeHeight, lm.position[2]);
         tempVec.project(camera);
 
         const isBehind = tempVec.z > 1.0;
@@ -507,12 +570,8 @@ export const CampusMap3D: React.FC = () => {
       if (!container) return;
       const newW = container.clientWidth;
       const newH = container.clientHeight;
-      const newAspect = newW / newH;
 
-      camera.left = (-frustumSize * newAspect) / 2;
-      camera.right = (frustumSize * newAspect) / 2;
-      camera.top = frustumSize / 2;
-      camera.bottom = -frustumSize / 2;
+      camera.aspect = newW / newH;
       camera.updateProjectionMatrix();
 
       renderer.setSize(newW, newH);
@@ -522,16 +581,25 @@ export const CampusMap3D: React.FC = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (transitTimeoutRef.current) {
+        clearTimeout(transitTimeoutRef.current);
+        transitTimeoutRef.current = null;
+      }
       cancelAnimationFrame(animationFrameId);
 
       // Clean up any remaining transit entity
       if (activeTransitRef.current && sceneRef.current) {
-        sceneRef.current.remove(activeTransitRef.current.entityGroup);
-        if (activeTransitRef.current.destMarker) {
-          sceneRef.current.remove(activeTransitRef.current.destMarker);
+        try {
+          sceneRef.current.remove(activeTransitRef.current.entityGroup);
+          if (activeTransitRef.current.destMarker) {
+            sceneRef.current.remove(activeTransitRef.current.destMarker);
+          }
+        } catch {
+          // ignore
         }
         activeTransitRef.current = null;
       }
+      setTransitHUD(null);
 
       controls.dispose();
       renderer.dispose();
@@ -539,7 +607,7 @@ export const CampusMap3D: React.FC = () => {
         container.removeChild(renderer.domElement);
       }
     };
-  }, [applyTransitEffects, navigateToLocation, setLastVisitedLandmarkId]);
+  }, []);
 
   const isTraveling = transitHUD !== null;
 

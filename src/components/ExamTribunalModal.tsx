@@ -28,7 +28,11 @@ export const ExamTribunalModal: React.FC = () => {
   const [examResult, setExamResult] = useState<{
     score: number;
     grade: string;
+    gpa: number;
+    cgpa: number;
     cgpaChange: number;
+    isSeasonComplete: boolean;
+    nextPhaseText: string;
   } | null>(null);
 
   const [tribunalVerdict, setTribunalVerdict] = useState<{
@@ -84,7 +88,7 @@ export const ExamTribunalModal: React.FC = () => {
               <p className="text-xs text-slate-500 font-medium">
                 {isTribunal
                   ? 'Presided over by Dean of Student Affairs, HOD, and Chief Security Officer'
-                  : 'Faculty of Basic & Applied Sciences • 2 Hours Duration'}
+                  : `${stats.academicLevel || '100 Level'} · Semester ${stats.currentSemester || 1} Assessment • 2 Hours Duration`}
               </p>
             </div>
           </div>
@@ -110,15 +114,17 @@ export const ExamTribunalModal: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-                      Course Assessment
+                      Course Assessment · {stats.academicLevel || `${stats.currentLevel || 100} Level`} · Semester {stats.currentSemester || 1}
                     </h3>
                     <p className="text-sm font-black text-slate-900">
-                      SEN 302: Software Engineering Quality Assurance & Testing
+                      SEN {stats.currentLevel ? stats.currentLevel + 2 : 102}: Core Curriculum Examination
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold text-slate-400">Candidate Matric No</p>
-                    <p className="text-xs font-mono font-bold text-slate-800">{stats.matricNo}</p>
+                    <p className="text-[10px] font-bold text-slate-400">Clearance Status</p>
+                    <p className="text-xs font-mono font-bold text-emerald-700">
+                      3/3 Lectures Validated ✓
+                    </p>
                   </div>
                 </div>
 
@@ -224,29 +230,41 @@ export const ExamTribunalModal: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="text-base font-black text-slate-900">
-                      Examination Script Successfully Submitted!
+                      Official Semester Examination Result Published!
                     </h4>
                     <p className="text-xs text-slate-600 mt-1">
-                      Your answer booklet was accepted by the chief invigilator without incident.
+                      Faculty Examination Board officially published your assessment on the university LMS.
                     </p>
                   </div>
-                  <div className="flex items-center justify-center gap-4 py-2 font-mono">
-                    <span className="text-sm font-black text-emerald-800">
-                      Score: {examResult.score}%
-                    </span>
-                    <span className="text-sm font-black text-blue-700">
-                      Grade: {examResult.grade}
-                    </span>
-                    <span className="text-sm font-black text-emerald-700">
-                      CGPA: +{examResult.cgpaChange}
-                    </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 py-2 font-mono">
+                    <div className="p-2.5 rounded-xl bg-white border border-emerald-200 shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Exam Score</span>
+                      <span className="text-base font-black text-emerald-800">{examResult.score}%</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white border border-blue-200 shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Letter Grade</span>
+                      <span className="text-base font-black text-blue-700">Grade {examResult.grade}</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white border border-emerald-200 shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Semester GPA</span>
+                      <span className="text-base font-black text-emerald-700">{examResult.gpa.toFixed(2)} / 5.00</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white border border-purple-200 shadow-2xs">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 block">Cumulative CGPA</span>
+                      <span className="text-base font-black text-purple-700">{examResult.cgpa.toFixed(2)}</span>
+                    </div>
                   </div>
+                  {examResult.nextPhaseText && (
+                    <div className="p-2.5 rounded-xl bg-emerald-100/70 border border-emerald-300 text-emerald-950 text-xs font-semibold">
+                      🚀 Academic Transition: <strong>{examResult.nextPhaseText}</strong>
+                    </div>
+                  )}
                   <button
                     onClick={() => {
                       setIsExamModalOpen(false);
                       setExamResult(null);
                     }}
-                    className="px-6 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-md"
+                    className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-md active:scale-95"
                   >
                     Exit Exam Hall
                   </button>

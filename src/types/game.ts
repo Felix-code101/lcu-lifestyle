@@ -10,7 +10,8 @@ export type GameLocation =
   | 'guesthouse'
   | 'medical_centre'
   | 'lions_hall'
-  | 'adeline_hall';
+  | 'adeline_hall'
+  | 'sub';
 
 export type NavTab = 'map' | 'build' | 'inventory' | 'shop' | 'quests' | 'settings' | null;
 
@@ -77,6 +78,15 @@ export interface Quest {
 export type SpiritualTrack = 'none' | 'chapel' | 'mosque';
 export type SocioeconomicStatus = 'nepo' | 'lapo';
 
+export interface SemesterRecord {
+  level: number;
+  semester: 1 | 2;
+  score: number;
+  gpa: number;
+  grade: string;
+  semesterTitle: string;
+}
+
 export interface PlayerStats {
   // Matriculation & Identity
   isRegistered: boolean;
@@ -91,7 +101,14 @@ export interface PlayerStats {
   balance: number;
   energy: number;
   maxEnergy: number;
-  cgpa: number;
+  cgpa: number | null;
+  gpa: number | null;
+  classesAttended: number; // 0 to 3 for the active semester
+  currentLevel: 100 | 200 | 300 | 400;
+  currentSemester: 1 | 2;
+  calendarSeason: 'semester_1' | 'semester_2' | 'long_vacation';
+  isLongVacation: boolean;
+  completedSemesters: SemesterRecord[];
   knowledge: number;
   mood: number;
   level: number;
@@ -231,7 +248,7 @@ export interface RegisteredStudent {
   level: string;
   status: SocioeconomicStatus;
   balance: number;
-  cgpa: number;
+  cgpa: number | null;
   createdAt: string;
   lastActive: string;
   isOnline: boolean;
@@ -252,6 +269,10 @@ export interface CampusActivity {
   cashGain?: number;
   durationMinutes: number;
   requiredRank?: number;
+  isCoursework?: boolean;
+  isHolidayHustle?: boolean;
+  requiresHoliday?: boolean;
+  isExam?: boolean;
 }
 
 export interface CampusLocationInfo {

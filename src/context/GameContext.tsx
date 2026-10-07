@@ -40,6 +40,15 @@ export const ROOM_THEMES: RoomTheme[] = [
     directionalLight: '#fef08a',
   },
   {
+    name: 'Classic White',
+    id: 'classic_white',
+    floorColor: '#f1f5f9',
+    wallColor: '#ffffff',
+    gridColor: '#cbd5e1',
+    ambientLight: '#ffffff',
+    directionalLight: '#ffffff',
+  },
+  {
     name: 'Cyberpunk Neon',
     id: 'cyberpunk',
     floorColor: '#181b2a',
@@ -285,7 +294,16 @@ interface GameContextType {
   isTribunalModalOpen: boolean;
   setIsTribunalModalOpen: (val: boolean) => void;
   startExamSession: () => void;
-  submitExamLegitimate: () => { score: number; grade: string; cgpaChange: number };
+  submitExamLegitimate: () => {
+    score: number;
+    grade: string;
+    gpa: number;
+    cgpa: number;
+    cgpaChange: number;
+    isSeasonComplete: boolean;
+    nextPhaseText: string;
+  };
+  resumeNextSession: () => void;
   sneakExpoCheat: () => { caught: boolean; currentAlertness: number; scoreBoost: number };
   submitTribunalDefense: (defenseStrategy: 'innocent' | 'confess' | 'blame_roommate' | 'medical_exemption') => { verdict: 'guilty' | 'probation' | 'acquitted'; penaltyDesc: string };
 
@@ -400,7 +418,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       balance: 15000,
       energy: 90,
       maxEnergy: 100,
-      cgpa: 4.50, // First Class Slate
+      cgpa: null, // Pending until first exam
+      gpa: null,
+      classesAttended: 0,
+      currentLevel: 100,
+      currentSemester: 1,
+      calendarSeason: 'semester_1',
+      isLongVacation: false,
+      completedSemesters: [],
       knowledge: 480,
       mood: 85,
       level: 1,
@@ -445,9 +470,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.isRegistered) {
+          const completedSemesters = Array.isArray(parsed.completedSemesters) ? parsed.completedSemesters : [];
+          // If no completed exams yet, ensure fresher starts with pending CGPA
+          const effectiveCgpa = completedSemesters.length > 0 ? (parsed.cgpa ?? null) : null;
           return {
             ...defaultStats,
             ...parsed,
+            completedSemesters,
+            cgpa: effectiveCgpa,
+            gpa: parsed.gpa ?? null,
+            classesAttended: parsed.classesAttended ?? 0,
+            currentLevel: parsed.currentLevel ?? 100,
+            currentSemester: parsed.currentSemester ?? 1,
+            calendarSeason: parsed.calendarSeason ?? 'semester_1',
+            isLongVacation: parsed.isLongVacation ?? false,
             isRegistered: true,
           };
         }
@@ -619,6 +655,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           status: profile.status,
           balance: profile.balance,
           mood: profile.mood,
+          cgpa: null,
+          gpa: null,
+          classesAttended: 0,
+          currentLevel: 100,
+          currentSemester: 1,
+          calendarSeason: 'semester_1',
+          isLongVacation: false,
+          completedSemesters: [],
           activeLoanAmount: 0,
         };
         try {
@@ -828,11 +872,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const targetInfo = CAMPUS_LOCATIONS.find((l) => l.id === target);
-      const energyCost = targetInfo?.energyCost || 5;
-      const travelMins = targetInfo?.travelMinutes || 10;
+      const isFromCampusMap = currentLocation === 'campus_map';
+      const energyCost = isFromCampusMap ? 0 : (targetInfo?.energyCost || 5);
+      const travelMins = isFromCampusMap ? 0 : (targetInfo?.travelMinutes || 10);
 
-      // Check if student has sufficient stamina to trek/commute
-      if (stats.energy < energyCost) {
+      // Check if student has sufficient stamina to trek/commute (skip check if already navigated on campus map)
+      if (!isFromCampusMap && stats.energy < energyCost) {
         addToast(`⚠️ Too exhausted to travel! Rest or eat food first (Energy: ${stats.energy}/${energyCost}).`, 'warning');
         return;
       }
@@ -842,28 +887,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveTab(null);
 
       setTimeout(() => {
-        setStats((prev) => {
-          let newMin = prev.inGameMinutes + travelMins;
-          let newHour = prev.inGameHours;
-          let newDay = prev.day;
-          if (newMin >= 60) {
-            newHour += Math.floor(newMin / 60);
-            newMin = newMin % 60;
-          }
-          if (newHour >= 24) {
-            newDay += Math.floor(newHour / 24);
-            newHour = newHour % 24;
-          }
+        if (!isFromCampusMap && (energyCost > 0 || travelMins > 0)) {
+          setStats((prev) => {
+            let newMin = prev.inGameMinutes + travelMins;
+            let newHour = prev.inGameHours;
+            let newDay = prev.day;
+            if (newMin >= 60) {
+              newHour += Math.floor(newMin / 60);
+              newMin = newMin % 60;
+            }
+            if (newHour >= 24) {
+              newDay += Math.floor(newHour / 24);
+              newHour = newHour % 24;
+            }
 
-          return {
-            ...prev,
-            energy: Math.max(0, prev.energy - energyCost),
-            inGameMinutes: newMin,
-            inGameHours: newHour,
-            day: newDay,
-            mood: Math.max(0, Math.min(100, prev.mood - 2)),
-          };
-        });
+            return {
+              ...prev,
+              energy: Math.max(0, prev.energy - energyCost),
+              inGameMinutes: newMin,
+              inGameHours: newHour,
+              day: newDay,
+              mood: Math.max(0, Math.min(100, prev.mood - 2)),
+            };
+          });
+        }
 
         if (target === 'mosque') {
           setStats((prev) => ({ ...prev, removedShoes: false }));
@@ -871,7 +918,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setCurrentLocation(target);
         setIsTransitioning(false);
-        addToast(`Arrived at ${targetInfo?.name}! (-${energyCost}⚡, +${travelMins}m travel)`, 'info');
+        const destinationLabel = targetInfo?.name || (target === 'sub' ? 'Student Union Building' : target);
+        if (isFromCampusMap) {
+          addToast(`📍 Entered ${destinationLabel}!`, 'info');
+        } else {
+          addToast(`Arrived at ${destinationLabel}! (-${energyCost}⚡, +${travelMins}m travel)`, 'info');
+        }
       }, 450);
     },
     [currentLocation, stats.energy, addToast]
@@ -880,6 +932,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Perform location-specific student actions (attend class, study, eat, workout, worship)
   const performActivity = useCallback(
     (activity: CampusActivity) => {
+      // Exam Activity Trigger & Clearance Check
+      if (activity.id === 'write_exam' || activity.isExam) {
+        if (stats.isLongVacation) {
+          addToast('🏖️ Lecture rooms are closed during Annual Long Vacation! Relax in hostel or take on holiday hustles.', 'warning');
+          return;
+        }
+        if ((stats.classesAttended || 0) < 3) {
+          addToast(
+            `❌ Examination Clearance Denied! You must attend at least 3 lectures/tutorials before sitting for the semester exam (Currently: ${stats.classesAttended || 0}/3).`,
+            'warning'
+          );
+          return;
+        }
+        startExamSession();
+        return;
+      }
+
       if (activity.requiredRank && stats.spiritualRank < activity.requiredRank) {
         addToast(
           `🔒 Locked: Requires Spiritual Rank ${activity.requiredRank} (${
@@ -903,6 +972,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      const isCoursework =
+        activity.id === 'attend_lecture' ||
+        activity.id === 'evening_tutorial' ||
+        activity.id === 'read_library' ||
+        activity.isCoursework === true ||
+        activity.title === 'Attend a Lecture' ||
+        activity.title === 'Evening Tutorial Class' ||
+        activity.title === 'Read in the Main Library';
+
+      let updatedAttendance = stats.classesAttended || 0;
+
       setStats((prev) => {
         let newMin = prev.inGameMinutes + activity.durationMinutes;
         let newHour = prev.inGameHours;
@@ -921,12 +1001,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? Math.min(prev.maxEnergy, prev.energy + activity.energyGain)
           : Math.max(0, prev.energy - costToDeduct);
 
-        const newCgpa = Math.min(5.0, Number((prev.cgpa + activity.cgpaGain).toFixed(2)));
-        const newKnowledge = prev.knowledge + Math.round(activity.cgpaGain * 400);
+        // CGPA remains null for freshers until semester examination
+        const newCgpa = prev.cgpa !== null ? Math.min(5.0, Number((prev.cgpa + activity.cgpaGain).toFixed(2))) : null;
+        const knowledgeBonus = isCoursework ? 40 : Math.round(activity.cgpaGain * 400);
+        const newKnowledge = prev.knowledge + knowledgeBonus;
         const newMood = Math.max(0, Math.min(100, prev.mood + activity.moodGain));
         const cashIncome = activity.cashGain || 0;
         const newBalance = prev.balance - activity.cashCost + cashIncome;
-        const earnedXp = Math.round(activity.durationMinutes * 0.8 + activity.cgpaGain * 500);
+        const earnedXp = Math.round(activity.durationMinutes * 0.8 + activity.cgpaGain * 500 + (isCoursework ? 50 : 0));
+
+        const nextAttendance = isCoursework ? Math.min(3, (prev.classesAttended || 0) + 1) : (prev.classesAttended || 0);
+        updatedAttendance = nextAttendance;
 
         // Spiritual progression & Piety
         const pietyGain = activity.pietyGain || 0;
@@ -974,6 +1059,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           balance: newBalance,
           energy: newEnergy,
           cgpa: newCgpa,
+          classesAttended: nextAttendance,
           knowledge: newKnowledge,
           mood: newMood,
           xp: prev.xp + earnedXp,
@@ -987,6 +1073,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           day: newDay,
         };
       });
+
+      if (isCoursework) {
+        setTimeout(() => {
+          if (updatedAttendance >= 3) {
+            addToast(`🎓 3/3 Coursework units completed! Semester Examination Hall clearance approved!`, 'success');
+          } else {
+            addToast(`📚 Attendance recorded (${updatedAttendance}/3 lectures attended for exam clearance)`, 'info');
+          }
+        }, 150);
+      }
 
       const gainsMsg = [
         activity.pietyGain ? `+${activity.pietyGain} Piety` : '',
@@ -1063,7 +1159,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addToast('❌ Disqualified! Candidate must have 0 disciplinary strikes and no active suspensions.', 'warning');
       return false;
     }
-    if (stats.cgpa < 3.0) {
+    if (stats.cgpa !== null && stats.cgpa < 3.0) {
       addToast(`❌ Academic Disqualification! Minimum CGPA of 3.0 required (Current: ${stats.cgpa.toFixed(2)}).`, 'warning');
       return false;
     }
@@ -1157,7 +1253,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const holdElectionVoteTally = useCallback(() => {
     const totalVotes = 1200;
     const popRatio = stats.campaignPopularity / 100;
-    const cgpaBonus = stats.cgpa >= 4.5 ? 0.08 : stats.cgpa >= 3.5 ? 0.04 : 0;
+    const cgpaBonus = stats.cgpa !== null ? (stats.cgpa >= 4.5 ? 0.08 : stats.cgpa >= 3.5 ? 0.04 : 0) : 0.02;
     const strikePenalty = stats.disciplinaryStrikes * 0.15;
     const playerRatio = Math.max(0.12, Math.min(0.88, (popRatio * 0.75) + cgpaBonus - strikePenalty + (Math.random() * 0.06 - 0.03)));
 
@@ -1317,42 +1413,159 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // --- Exam Hall & Disciplinary Tribunal ---
   const startExamSession = useCallback(() => {
+    if (stats.isLongVacation) {
+      addToast(
+        '🏖️ Lecture rooms are closed during Annual Long Vacation! Relax in hostel or take on holiday hustles.',
+        'warning'
+      );
+      return;
+    }
+    if ((stats.classesAttended || 0) < 3) {
+      addToast(
+        `❌ Exam Clearance Denied! You must attend at least 3 lectures/tutorials before sitting for the exam (Currently: ${stats.classesAttended || 0}/3).`,
+        'warning'
+      );
+      return;
+    }
     setStats((prev) => ({
       ...prev,
       invigilatorAlertness: 0,
       isTakingExam: true,
     }));
     setIsExamModalOpen(true);
-  }, []);
+  }, [stats.isLongVacation, stats.classesAttended, addToast]);
 
-  const submitExamLegitimate = useCallback((): { score: number; grade: string; cgpaChange: number } => {
+  const submitExamLegitimate = useCallback((): {
+    score: number;
+    grade: string;
+    gpa: number;
+    cgpa: number;
+    cgpaChange: number;
+    isSeasonComplete: boolean;
+    nextPhaseText: string;
+  } => {
     const kpBonus = Math.min(45, Math.floor(stats.knowledge / 20));
-    const rawScore = 55 + kpBonus + Math.floor(Math.random() * 10);
-    const score = Math.min(96, Math.max(50, rawScore));
+    const rawScore = 52 + kpBonus + Math.floor(Math.random() * 10);
+    const score = Math.min(100, Math.max(35, rawScore));
 
-    let grade = 'C';
-    let cgpaChange = 0.02;
+    let grade = 'F';
+    let gpa = 0.0;
     if (score >= 70) {
       grade = 'A';
-      cgpaChange = 0.08;
+      gpa = 5.0;
     } else if (score >= 60) {
       grade = 'B';
-      cgpaChange = 0.04;
+      gpa = 4.0;
+    } else if (score >= 50) {
+      grade = 'C';
+      gpa = 3.0;
+    } else if (score >= 45) {
+      grade = 'D';
+      gpa = 2.0;
+    } else {
+      grade = 'F';
+      gpa = 0.0;
     }
+
+    const currentLvl = stats.currentLevel || 100;
+    const currentSem = stats.currentSemester || 1;
+
+    const newSemRecord = {
+      level: currentLvl,
+      semester: currentSem,
+      score,
+      gpa,
+      grade,
+      semesterTitle: `${currentLvl}L Semester ${currentSem}`,
+    };
+
+    const updatedCompleted = [...(stats.completedSemesters || []), newSemRecord];
+    const totalGpa = updatedCompleted.reduce((acc, curr) => acc + curr.gpa, 0);
+    const newCgpa = Number((totalGpa / updatedCompleted.length).toFixed(2));
+
+    const isFinishingSemester2 = currentSem === 2;
+    const nextSeason = isFinishingSemester2 ? 'long_vacation' : 'semester_2';
+    const nextPhaseText = isFinishingSemester2
+      ? 'Annual Long Vacation (July – October)'
+      : 'Semester 2 (April – June)';
 
     setStats((prev) => ({
       ...prev,
-      cgpa: Math.min(5.0, Number((prev.cgpa + cgpaChange).toFixed(2))),
+      gpa,
+      cgpa: newCgpa,
+      currentSemester: isFinishingSemester2 ? 2 : 2,
+      calendarSeason: nextSeason,
+      isLongVacation: isFinishingSemester2,
+      classesAttended: 0,
+      completedSemesters: updatedCompleted,
       energy: Math.max(0, prev.energy - 25),
       isTakingExam: false,
       examScore: score,
-      mood: Math.min(100, prev.mood + 15),
-      xp: prev.xp + 150,
+      mood: Math.min(100, prev.mood + 20),
+      xp: prev.xp + 200,
     }));
 
-    addToast(`📝 Exam Submitted Honestly! Scored ${score}% (Grade ${grade})! CGPA: +${cgpaChange}`, 'success');
-    return { score, grade, cgpaChange };
-  }, [stats.knowledge, stats.energy, addToast]);
+    if (isFinishingSemester2) {
+      addToast(
+        `🏖️ 2nd Semester Concluded! Exam Score: ${score}% (${grade} - GPA ${gpa.toFixed(2)}). Cumulative CGPA: ${newCgpa.toFixed(2)}. Annual Long Vacation has begun (July – October)!`,
+        'success'
+      );
+    } else {
+      addToast(
+        `📝 Semester 1 Exam Submitted! Exam Score: ${score}% (${grade} - GPA ${gpa.toFixed(2)}). Cumulative CGPA: ${newCgpa.toFixed(2)}. Resuming Semester 2 (April – June)!`,
+        'success'
+      );
+    }
+
+    return {
+      score,
+      grade,
+      gpa,
+      cgpa: newCgpa,
+      cgpaChange: gpa,
+      isSeasonComplete: isFinishingSemester2,
+      nextPhaseText,
+    };
+  }, [stats.knowledge, stats.currentLevel, stats.currentSemester, stats.completedSemesters, addToast]);
+
+  const resumeNextSession = useCallback(() => {
+    setStats((prev) => {
+      let nextLvl: 100 | 200 | 300 | 400 = 200;
+      let nextAcademicTitle = '200 Level (Sophomore)';
+
+      if (prev.currentLevel === 100) {
+        nextLvl = 200;
+        nextAcademicTitle = '200 Level (Sophomore)';
+      } else if (prev.currentLevel === 200) {
+        nextLvl = 300;
+        nextAcademicTitle = '300 Level (Penultimate)';
+      } else if (prev.currentLevel === 300) {
+        nextLvl = 400;
+        nextAcademicTitle = '400 Level (Final Year)';
+      } else {
+        nextLvl = 400;
+        nextAcademicTitle = 'Graduated (Alumnus)';
+      }
+
+      return {
+        ...prev,
+        currentLevel: nextLvl,
+        academicLevel: nextAcademicTitle,
+        currentSemester: 1,
+        calendarSeason: 'semester_1',
+        isLongVacation: false,
+        classesAttended: 0,
+        energy: Math.min(prev.maxEnergy, Math.max(prev.energy, 80)),
+        mood: Math.min(100, Math.max(prev.mood, 80)),
+        level: prev.level + 1,
+      };
+    });
+
+    addToast(
+      '🎓 Resumed Next Academic Session (October)! New session matriculated into Semester 1 (November – March). Lecture rooms are now open!',
+      'success'
+    );
+  }, [addToast]);
 
   const sneakExpoCheat = useCallback((): { caught: boolean; currentAlertness: number; scoreBoost: number } => {
     const alertnessIncrease = Math.floor(Math.random() * 15) + 30;
@@ -1412,7 +1625,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...prev,
           isSuspended: true,
           suspensionDaysRemaining: 2,
-          cgpa: Math.max(1.0, Number((prev.cgpa - 0.80).toFixed(2))),
+          cgpa: prev.cgpa !== null ? Math.max(1.0, Number((prev.cgpa - 0.80).toFixed(2))) : null,
           isSugCandidate: false,
           disciplinaryStrikes: prev.disciplinaryStrikes + 1,
           mood: Math.max(0, prev.mood - 40),
@@ -1423,7 +1636,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       penaltyDesc = 'Tribunal showed leniency for remorse. Placed on Disciplinary Probation: -0.30 CGPA dock, community service.';
       setStats((prev) => ({
         ...prev,
-        cgpa: Math.max(1.5, Number((prev.cgpa - 0.30).toFixed(2))),
+        cgpa: prev.cgpa !== null ? Math.max(1.5, Number((prev.cgpa - 0.30).toFixed(2))) : null,
         isSugCandidate: false,
         disciplinaryStrikes: prev.disciplinaryStrikes + 1,
         mood: Math.max(10, prev.mood - 20),
@@ -1435,7 +1648,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...prev,
         isSuspended: true,
         suspensionDaysRemaining: 3,
-        cgpa: Math.max(1.0, Number((prev.cgpa - 1.00).toFixed(2))),
+        cgpa: prev.cgpa !== null ? Math.max(1.0, Number((prev.cgpa - 1.00).toFixed(2))) : null,
         isSugCandidate: false,
         disciplinaryStrikes: prev.disciplinaryStrikes + 2,
         mood: Math.max(0, prev.mood - 50),
@@ -1835,6 +2048,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsTribunalModalOpen,
         startExamSession,
         submitExamLegitimate,
+        resumeNextSession,
         sneakExpoCheat,
         submitTribunalDefense,
         triggerEmergencyCollapse,

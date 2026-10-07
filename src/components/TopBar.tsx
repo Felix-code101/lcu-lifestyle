@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGame, ROOM_THEMES } from '../context/GameContext';
+import { useGame } from '../context/GameContext';
 import {
   Coins,
   Clock,
@@ -8,19 +8,13 @@ import {
   Sunset,
   RotateCcw,
   Plus,
-  Palette,
   GraduationCap,
   Zap,
   Smile,
-  Map,
-  Home,
   Sparkles,
   Flame,
-  Vote,
-  Briefcase,
   Scale,
   ShieldAlert,
-  Shield,
   Crown,
   Backpack,
 } from 'lucide-react';
@@ -30,17 +24,9 @@ export const TopBar: React.FC = () => {
     stats,
     addBalance,
     triggerResetCamera,
-    theme,
-    setTheme,
     dayNightCycle,
     setDayNightCycle,
-    currentLocation,
-    navigateToLocation,
-    setIsWardrobeOpen,
-    setIsElectionsModalOpen,
-    setIsHustleModalOpen,
     setIsTribunalModalOpen,
-    setIsAdminOpen,
   } = useGame();
 
   const xpPercent = Math.min(100, Math.round((stats.xp / stats.maxXp) * 100));
@@ -61,18 +47,21 @@ export const TopBar: React.FC = () => {
   const formattedMinutes = stats.inGameMinutes.toString().padStart(2, '0');
 
   // CGPA Class categorization
-  const getCgpaClass = (cgpa: number) => {
+  // CGPA Class categorization
+  const getCgpaClass = (cgpa: number | null) => {
+    if (cgpa === null) return { label: 'Pending', color: 'text-slate-600 bg-slate-100 border-slate-300' };
     if (cgpa >= 4.5) return { label: '1st Class', color: 'text-emerald-700 bg-emerald-100 border-emerald-300' };
     if (cgpa >= 3.5) return { label: '2nd Class Upper', color: 'text-blue-700 bg-blue-100 border-blue-300' };
     if (cgpa >= 2.4) return { label: '2nd Class Lower', color: 'text-amber-700 bg-amber-100 border-amber-300' };
-    return { label: 'Pass', color: 'text-rose-700 bg-rose-100 border-rose-300' };
+    if (cgpa >= 1.5) return { label: '3rd Class', color: 'text-orange-700 bg-orange-100 border-orange-300' };
+    return { label: 'Pass / Retake', color: 'text-rose-700 bg-rose-100 border-rose-300' };
   };
 
   const cgpaClass = getCgpaClass(stats.cgpa);
 
   return (
     <header className="absolute top-3 left-3 right-3 z-30 pointer-events-none flex flex-wrap items-center justify-between gap-2.5">
-      {/* Left: Liids University Student Profile & Stats (Cash, CGPA, Energy, Mood) */}
+      {/* Left: Liids University Student Profile & Core Vitals (Cash, CGPA, Energy, Fitness, Mood) */}
       <div className="pointer-events-auto flex flex-wrap items-center gap-2">
         {/* Student ID Card */}
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md">
@@ -88,7 +77,7 @@ export const TopBar: React.FC = () => {
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs font-bold text-slate-900 tracking-wide">
-                LU Level {stats.level} · Fresher
+                {stats.academicLevel || `LU ${stats.currentLevel || 100}L`}
               </span>
               <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono font-semibold">
                 {stats.matricNo}
@@ -188,9 +177,58 @@ export const TopBar: React.FC = () => {
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-extrabold text-blue-800 font-mono">
-                {stats.cgpa.toFixed(2)}
+                {stats.cgpa !== null ? stats.cgpa.toFixed(2) : 'Pending'}
               </span>
               <span className="text-[10px] text-slate-500 font-mono">({stats.knowledge} KP)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Academic Session Calendar & Attendance Pill */}
+        <div
+          title={
+            stats.isLongVacation
+              ? 'Annual Long Vacation (July – October). Lecture rooms are closed. Holiday hustles active.'
+              : `${stats.currentLevel || 100}L Semester ${stats.currentSemester || 1} (${stats.currentSemester === 2 ? 'April – June' : 'November – March'}). Complete 3 lectures/tutorials to unlock Semester Exam!`
+          }
+          className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md"
+        >
+          <div
+            className={`w-7 h-7 rounded-lg flex items-center justify-center border text-xs font-bold ${
+              stats.isLongVacation
+                ? 'bg-amber-100 border-amber-300 text-amber-800'
+                : 'bg-emerald-100 border-emerald-300 text-emerald-800'
+            }`}
+          >
+            {stats.isLongVacation ? '🏖️' : '📅'}
+          </div>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Calendar</span>
+              <span
+                className={`text-[9px] px-1 py-0.1 rounded font-bold border ${
+                  stats.isLongVacation
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                }`}
+              >
+                {stats.isLongVacation
+                  ? 'Long Vac (Jul–Oct)'
+                  : `${stats.currentLevel || 100}L · Sem ${stats.currentSemester || 1}`}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              {stats.isLongVacation ? (
+                <span className="text-[10px] font-semibold text-amber-700">Holiday Hustles Active</span>
+              ) : (
+                <span
+                  className={`text-[10px] font-mono ${
+                    (stats.classesAttended || 0) >= 3 ? 'text-emerald-700 font-bold' : 'text-slate-600'
+                  }`}
+                >
+                  Classes: {stats.classesAttended || 0}/3 {(stats.classesAttended || 0) >= 3 ? '✓ (Exam Ready)' : ''}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -298,131 +336,38 @@ export const TopBar: React.FC = () => {
         )}
       </div>
 
-      {/* Center: In-Game University Clock */}
-      <div className="pointer-events-auto flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md">
-        <div className="flex items-center gap-1.5">
-          {getTimeIcon()}
-          <span className="text-xs sm:text-sm font-mono font-bold text-slate-800 tracking-widest">
-            {formattedHours}:{formattedMinutes}
-          </span>
-        </div>
-        <div className="h-3.5 w-px bg-slate-200"></div>
-        <div className="flex items-center gap-1 text-xs font-semibold text-slate-600">
-          <Clock className="w-3.5 h-3.5 text-slate-400" />
-          <span>Day {stats.day}</span>
-        </div>
-        <button
-          onClick={() => setDayNightCycle((prev) => !prev)}
-          title={dayNightCycle ? 'Dynamic Sky: Active' : 'Static Lighting: Active'}
-          className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors ${
-            dayNightCycle
-              ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
-              : 'bg-slate-100 border-slate-200 text-slate-600'
-          }`}
-        >
-          {dayNightCycle ? 'Auto' : 'Fixed'}
-        </button>
-      </div>
-
-      {/* Right: Quick Action Controls */}
+      {/* Right: In-Game University Clock & Time/Day HUD */}
       <div className="pointer-events-auto flex items-center gap-2">
-        {/* SUG Presidential Race */}
-        <button
-          onClick={() => setIsElectionsModalOpen(true)}
-          title="Campus Politics: SUG Presidential Campaign & Voting"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white shadow-md text-xs font-bold transition-all active:scale-95 border border-emerald-600"
-        >
-          <Vote className="w-3.5 h-3.5 text-amber-300" />
-          <span>{stats.hasWonSugElection ? 'SUG Office' : 'SUG Race'}</span>
-        </button>
-
-        {/* Student Hustles & Crime */}
-        <button
-          onClick={() => setIsHustleModalOpen(true)}
-          title="Student Hustles (Small Chops & Project Gigs) / Campus Underworld"
-          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white shadow-md text-xs font-bold transition-all active:scale-95 border border-amber-500"
-        >
-          <Briefcase className="w-3.5 h-3.5 text-amber-200" />
-          <span>Hustles</span>
-        </button>
-
-        {/* Wardrobe / Avatar Customization Button */}
-        <button
-          onClick={() => setIsWardrobeOpen(true)}
-          title="Customize 3D Student Avatar & Wardrobe"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-md text-xs font-bold transition-all active:scale-95 border border-indigo-500"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>Wardrobe</span>
-        </button>
-
-        {/* Campus Map / Return to Hostel Quick Button */}
-        <button
-          onClick={() =>
-            navigateToLocation(currentLocation === 'campus_map' ? 'home_hostel' : 'campus_map')
-          }
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md text-xs font-bold transition-all active:scale-95 border border-emerald-500"
-        >
-          {currentLocation === 'campus_map' ? (
-            <>
-              <Home className="w-3.5 h-3.5" />
-              <span>Return to Hostel</span>
-            </>
-          ) : (
-            <>
-              <Map className="w-3.5 h-3.5" />
-              <span>Campus Map 3D</span>
-            </>
-          )}
-        </button>
-
-        {/* Admin Console Shortcut */}
-        <button
-          onClick={() => setIsAdminOpen(true)}
-          title="Admin Console (Ctrl+Shift+A): Live Student Registry, Socioeconomic Switcher & VC Announcements"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-800 shadow-sm text-xs font-bold transition-all active:scale-95 cursor-pointer"
-        >
-          <Shield className="w-3.5 h-3.5 text-rose-600" />
-          <span>Admin</span>
-        </button>
-
-        {/* Theme Picker */}
-        <div className="relative group">
-          <button
-            title="Room Aesthetics & Lighting"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md hover:bg-slate-50 text-slate-700 transition-all text-xs font-semibold"
-          >
-            <Palette className="w-3.5 h-3.5 text-indigo-500" />
-            <span className="hidden xl:inline">{theme.name}</span>
-          </button>
-
-          <div className="absolute right-0 mt-2 w-48 py-2 rounded-2xl bg-white border border-slate-200 shadow-xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-200 z-50">
-            <div className="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-              Campus Themes
-            </div>
-            {ROOM_THEMES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t)}
-                className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                  theme.id === t.id ? 'text-emerald-700 font-bold bg-emerald-50' : 'text-slate-700'
-                }`}
-              >
-                <span>{t.name}</span>
-                <span
-                  className="w-3.5 h-3.5 rounded-full border border-slate-300"
-                  style={{ backgroundColor: t.floorColor }}
-                />
-              </button>
-            ))}
+        <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md">
+          <div className="flex items-center gap-1.5">
+            {getTimeIcon()}
+            <span className="text-xs sm:text-sm font-mono font-bold text-slate-800 tracking-widest">
+              {formattedHours}:{formattedMinutes}
+            </span>
           </div>
+          <div className="h-3.5 w-px bg-slate-200"></div>
+          <div className="flex items-center gap-1 text-xs font-semibold text-slate-600">
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span>Day {stats.day}</span>
+          </div>
+          <button
+            onClick={() => setDayNightCycle((prev) => !prev)}
+            title={dayNightCycle ? 'Dynamic Sky: Active' : 'Static Lighting: Active'}
+            className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors cursor-pointer ${
+              dayNightCycle
+                ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                : 'bg-slate-100 border-slate-200 text-slate-600'
+            }`}
+          >
+            {dayNightCycle ? 'Auto' : 'Fixed'}
+          </button>
         </div>
 
-        {/* Reset Camera to Isometric */}
+        {/* Small Orthographic Camera Reset Button */}
         <button
           onClick={triggerResetCamera}
           title="Reset Camera to Isometric Angle"
-          className="p-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all active:scale-95"
+          className="p-2 rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-md text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all active:scale-95 cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
         </button>

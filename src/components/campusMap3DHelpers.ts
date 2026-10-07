@@ -16,30 +16,61 @@ const mat = (color: string | number, roughness = 0.55, metalness = 0.1) =>
 export function createCampusTerrain(): THREE.Group {
   const terrain = new THREE.Group();
 
-  // 1. Vibrant Green University Lawn
+  // 1. Base Terrain: Vibrant Green University Lawn (Explicitly at y = 0.0)
   const lawnGeo = new THREE.PlaneGeometry(112, 112);
   lawnGeo.rotateX(-Math.PI / 2);
-  const lawnMat = mat('#16a34a', 0.85, 0.05); // Clean emerald grass
+  // Clean solid emerald grass material without dense repeating patterns
+  const lawnMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#16a34a'),
+    roughness: 0.85,
+    metalness: 0.05,
+    depthWrite: true,
+  });
   const lawn = new THREE.Mesh(lawnGeo, lawnMat);
+  lawn.position.set(0, 0.0, 0); // Explicitly y = 0.0
   lawn.receiveShadow = true;
   terrain.add(lawn);
 
-  // Clean Light Gray Base Plinth underneath map (complements white background)
+  // Clean Light Gray Base Plinth underneath map (safely below y = 0.0 to prevent coplanar fighting)
   const plinthGeo = new THREE.BoxGeometry(112.4, 2.0, 112.4);
   const plinthMat = mat('#e2e8f0', 0.9, 0.05);
   const plinth = new THREE.Mesh(plinthGeo, plinthMat);
-  plinth.position.y = -1.0;
+  plinth.position.y = -1.02; // Top surface at -0.02, safely beneath grass plane at y = 0.0
   plinth.receiveShadow = true;
   terrain.add(plinth);
 
-  // 2. Asphalt Roads & Walkways (Z = 0.02)
-  const roadMat = mat('#334155', 0.8, 0.15); // Smooth dark slate asphalt
+  // Decorative Grass Plaza Ring / Curb around roundabout (elevated slightly to y = 0.04)
+  const plazaGeo = new THREE.RingGeometry(11.2, 12.0, 36);
+  plazaGeo.rotateX(-Math.PI / 2);
+  const plazaMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#22c55e'),
+    roughness: 0.8,
+    metalness: 0.05,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -4.0,
+    depthWrite: true,
+  });
+  const plazaRing = new THREE.Mesh(plazaGeo, plazaMat);
+  plazaRing.position.set(0, 0.04, 0);
+  terrain.add(plazaRing);
+
+  // 2. Road Network Meshes (Explicitly elevated to y = 0.08 with polygonOffset)
+  const roadMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#334155'), // Smooth dark slate asphalt
+    roughness: 0.8,
+    metalness: 0.15,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -4.0,
+    depthWrite: true,
+  });
 
   // North-South Main Boulevard
   const nsRoadGeo = new THREE.PlaneGeometry(5.4, 100);
   nsRoadGeo.rotateX(-Math.PI / 2);
   const nsRoad = new THREE.Mesh(nsRoadGeo, roadMat);
-  nsRoad.position.set(0, 0.02, 0);
+  nsRoad.position.set(0, 0.08, 0);
   nsRoad.receiveShadow = true;
   terrain.add(nsRoad);
 
@@ -47,7 +78,7 @@ export function createCampusTerrain(): THREE.Group {
   const ewRoadGeo = new THREE.PlaneGeometry(100, 5.4);
   ewRoadGeo.rotateX(-Math.PI / 2);
   const ewRoad = new THREE.Mesh(ewRoadGeo, roadMat);
-  ewRoad.position.set(0, 0.02, 0);
+  ewRoad.position.set(0, 0.08, 0);
   ewRoad.receiveShadow = true;
   terrain.add(ewRoad);
 
@@ -55,16 +86,24 @@ export function createCampusTerrain(): THREE.Group {
   const roundGeo = new THREE.RingGeometry(5.2, 11.2, 36);
   roundGeo.rotateX(-Math.PI / 2);
   const roundRoad = new THREE.Mesh(roundGeo, roadMat);
-  roundRoad.position.set(0, 0.022, 0);
+  roundRoad.position.set(0, 0.08, 0);
   roundRoad.receiveShadow = true;
   terrain.add(roundRoad);
 
-  // Roundabout Center Island (Plaza lawn)
+  // Roundabout Center Island (Plaza lawn) - elevated to y = 0.085 with polygonOffset
   const islandGeo = new THREE.CircleGeometry(5.1, 36);
   islandGeo.rotateX(-Math.PI / 2);
-  const islandMat = mat('#22c55e', 0.8);
+  const islandMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#22c55e'),
+    roughness: 0.8,
+    metalness: 0.05,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.5,
+    polygonOffsetUnits: -5.0,
+    depthWrite: true,
+  });
   const island = new THREE.Mesh(islandGeo, islandMat);
-  island.position.set(0, 0.03, 0);
+  island.position.set(0, 0.085, 0);
   terrain.add(island);
 
   // Branch Roads:
@@ -72,31 +111,60 @@ export function createCampusTerrain(): THREE.Group {
   const nwRoadGeo = new THREE.PlaneGeometry(30, 4.2);
   nwRoadGeo.rotateX(-Math.PI / 2);
   const nwRoad = new THREE.Mesh(nwRoadGeo, roadMat);
-  nwRoad.position.set(-20, 0.02, -20);
+  nwRoad.position.set(-20, 0.08, -20);
   terrain.add(nwRoad);
 
   // North-East road to ICT Center
   const neRoadGeo = new THREE.PlaneGeometry(30, 4.2);
   neRoadGeo.rotateX(-Math.PI / 2);
   const neRoad = new THREE.Mesh(neRoadGeo, roadMat);
-  neRoad.position.set(20, 0.02, -20);
+  neRoad.position.set(20, 0.08, -20);
   terrain.add(neRoad);
 
   // South-West road to Hostels & SUB
   const swRoadGeo = new THREE.PlaneGeometry(34, 4.2);
   swRoadGeo.rotateX(-Math.PI / 2);
   const swRoad = new THREE.Mesh(swRoadGeo, roadMat);
-  swRoad.position.set(-20, 0.02, 22);
+  swRoad.position.set(-20, 0.08, 22);
   terrain.add(swRoad);
 
   // South-East road to Stadium
   const seRoadGeo = new THREE.PlaneGeometry(30, 4.2);
   seRoadGeo.rotateX(-Math.PI / 2);
   const seRoad = new THREE.Mesh(seRoadGeo, roadMat);
-  seRoad.position.set(20, 0.02, 22);
+  seRoad.position.set(20, 0.08, 22);
   terrain.add(seRoad);
 
-  // 3. Blue Water Canal
+  // Road Markings: Center Dashes at y = 0.085 with polygon offset
+  const markMat = new THREE.MeshBasicMaterial({
+    color: '#ffffff',
+    polygonOffset: true,
+    polygonOffsetFactor: -2.0,
+    polygonOffsetUnits: -6.0,
+    depthWrite: true,
+  });
+
+  // North-South dashed road stripes
+  for (let z = -46; z <= 46; z += 4) {
+    if (Math.abs(z) > 12 && Math.abs(z - (-10)) > 4) { // omit roundabout and canal bridge
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 2.2), markMat);
+      dash.rotateX(-Math.PI / 2);
+      dash.position.set(0, 0.085, z);
+      terrain.add(dash);
+    }
+  }
+
+  // East-West dashed road stripes
+  for (let x = -46; x <= 46; x += 4) {
+    if (Math.abs(x) > 12) {
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.18), markMat);
+      dash.rotateX(-Math.PI / 2);
+      dash.position.set(x, 0.085, 0);
+      terrain.add(dash);
+    }
+  }
+
+  // 3. Blue Water Canal (y = 0.02)
   const waterGeo = new THREE.PlaneGeometry(105, 4.8);
   waterGeo.rotateX(-Math.PI / 2);
   const waterMat = new THREE.MeshStandardMaterial({
@@ -107,41 +175,45 @@ export function createCampusTerrain(): THREE.Group {
     metalness: 0.2,
     transparent: true,
     opacity: 0.9,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -4.0,
+    depthWrite: true,
   });
   const canal = new THREE.Mesh(waterGeo, waterMat);
-  canal.position.set(0, 0.015, -10);
+  canal.position.set(0, 0.02, -10);
   canal.rotation.y = 0.07;
   terrain.add(canal);
 
-  // Canal Stone Banks
+  // Canal Stone Banks (elevated to y = 0.09)
   const bankMat = mat('#94a3b8', 0.7);
   const bankNorth = new THREE.Mesh(new THREE.BoxGeometry(105, 0.18, 0.45), bankMat);
-  bankNorth.position.set(0, 0.08, -12.5);
+  bankNorth.position.set(0, 0.09, -12.5);
   bankNorth.rotation.y = 0.07;
   terrain.add(bankNorth);
 
   const bankSouth = new THREE.Mesh(new THREE.BoxGeometry(105, 0.18, 0.45), bankMat);
-  bankSouth.position.set(0, 0.08, -7.5);
+  bankSouth.position.set(0, 0.09, -7.5);
   bankSouth.rotation.y = 0.07;
   terrain.add(bankSouth);
 
-  // Central North-South Bridge over Canal
+  // Central North-South Bridge over Canal (y = 0.16)
   const bridgeGeo = new THREE.BoxGeometry(5.8, 0.28, 5.4);
   const bridgeMat = mat('#cbd5e1', 0.6);
   const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
-  bridge.position.set(0, 0.14, -10);
+  bridge.position.set(0, 0.16, -10);
   bridge.castShadow = true;
   terrain.add(bridge);
 
-  // White Bridge Railings
+  // White Bridge Railings (y = 0.47)
   const railGeo = new THREE.BoxGeometry(0.2, 0.65, 5.4);
   const railMat = mat('#ffffff', 0.3);
   const railLeft = new THREE.Mesh(railGeo, railMat);
-  railLeft.position.set(-2.8, 0.45, -10);
+  railLeft.position.set(-2.8, 0.47, -10);
   terrain.add(railLeft);
 
   const railRight = new THREE.Mesh(railGeo, railMat);
-  railRight.position.set(2.8, 0.45, -10);
+  railRight.position.set(2.8, 0.47, -10);
   terrain.add(railRight);
 
   return terrain;
@@ -277,7 +349,7 @@ export function createScatterProps(): THREE.Group {
 
   carData.forEach((c) => {
     const car = new THREE.Group();
-    car.position.set(c.pos[0], 0, c.pos[2]);
+    car.position.set(c.pos[0], 0.08, c.pos[2]); // Rest on asphalt road at y = 0.08
     car.rotation.y = c.rot;
 
     if (c.isDanfo) {
@@ -324,12 +396,27 @@ export function createScatterProps(): THREE.Group {
 }
 
 /**
+ * Creates an architectural foundation plinth that extends from base ground level (y = 0.0)
+ * up to the elevated building foundation level (y = 0.12).
+ * Eliminates coplanar depth fighting and ensures solid, realistic visual grounding.
+ */
+function createFoundationPlinth(w: number, d: number, color = '#cbd5e1'): THREE.Mesh {
+  const plinth = new THREE.Mesh(
+    new THREE.BoxGeometry(w, 0.12, d),
+    mat(color, 0.9, 0.05)
+  );
+  plinth.position.y = -0.06; // Bottom rests on grass at y = 0.0, top meets building at y = 0.12
+  plinth.receiveShadow = true;
+  return plinth;
+}
+
+/**
  * Builds the 3D high-detail architectural models for every specific Liids University (LU) landmark.
  */
 export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
   const group = new THREE.Group();
   group.name = landmark.id;
-  group.position.set(landmark.position[0], landmark.position[1], landmark.position[2]);
+  group.position.set(landmark.position[0], 0.12, landmark.position[2]); // Explicitly elevated to y = 0.12
 
   // Shared detailed window material
   const glassMat = new THREE.MeshStandardMaterial({
@@ -342,6 +429,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
   switch (landmark.id) {
     case 'senate_building': {
       // 🏛️ Senate Building (Admin Complex)
+      group.add(createFoundationPlinth(16.5, 14.5, '#cbd5e1'));
+
       // Stepped Foundation Plinth
       const plinth1 = new THREE.Mesh(new THREE.BoxGeometry(15, 0.4, 13), mat('#e2e8f0'));
       plinth1.position.y = 0.2;
@@ -424,6 +513,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'main_gate': {
       // 🚪 LU Main Gate 1 Entrance
+      group.add(createFoundationPlinth(11.5, 3.5, '#cbd5e1'));
+
       // Grand Roadside Pillars
       [-4.0, 4.0].forEach((gx) => {
         const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 4.4, 1.6), mat('#1e293b', 0.4));
@@ -483,6 +574,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'law_faculty': {
       // ⚖️ Faculty of Law Building
+      group.add(createFoundationPlinth(14, 10.5, '#cbd5e1'));
+
       // Stereobate Base
       const base = new THREE.Mesh(new THREE.BoxGeometry(13, 0.6, 9.5), mat('#e2e8f0'));
       base.position.y = 0.3;
@@ -537,6 +630,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'ict_center': {
       // 💻 Information Tech Center (ICT)
+      group.add(createFoundationPlinth(12.5, 10, '#cbd5e1'));
+
       // Stepped Modern Slate & Steel Block
       const main = new THREE.Mesh(new THREE.BoxGeometry(11, 5.0, 8.5), mat('#0f172a', 0.3));
       main.position.y = 2.5;
@@ -582,6 +677,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'library': {
       // 📚 University Library
+      group.add(createFoundationPlinth(14.5, 11.5, '#cbd5e1'));
+
       const plinth = new THREE.Mesh(new THREE.BoxGeometry(13.5, 0.5, 10.5), mat('#64748b'));
       plinth.position.y = 0.25;
       group.add(plinth);
@@ -626,6 +723,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'chapel': {
       // ⛪ Campus Chapel
+      group.add(createFoundationPlinth(7.5, 9.5, '#cbd5e1'));
+
       // High-pitched Nave
       const nave = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.6, 7.5), mat('#f8fafc', 0.3));
       nave.position.y = 1.8;
@@ -668,6 +767,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'mosque': {
       // 🕌 Campus Mosque
+      group.add(createFoundationPlinth(8.5, 8.5, '#cbd5e1'));
+
       // Square Prayer Sanctuary
       const sanctuary = new THREE.Mesh(new THREE.BoxGeometry(6.5, 3.6, 6.5), mat('#f8fafc', 0.3));
       sanctuary.position.y = 1.8;
@@ -714,6 +815,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'cafeteria': {
       // 🥗 Main Cafeteria (Food Hub & Bukka)
+      group.add(createFoundationPlinth(12.5, 10, '#cbd5e1'));
+
       // Wide Pavilion Building
       const pavilion = new THREE.Mesh(new THREE.BoxGeometry(11, 3.2, 8.5), mat('#f59e0b', 0.4)); // Warm terracotta
       pavilion.position.y = 1.6;
@@ -752,6 +855,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'sub': {
       // 🎭 Student Union Building (SUB)
+      group.add(createFoundationPlinth(12, 9.5, '#cbd5e1'));
+
       // Geometric Student Centre with Lounges
       const subMain = new THREE.Mesh(new THREE.BoxGeometry(10.5, 4.2, 8), mat('#f8fafc', 0.3));
       subMain.position.y = 2.1;
@@ -781,6 +886,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'pg_school': {
       // 🎓 Post-Graduate School
+      group.add(createFoundationPlinth(13, 10, '#cbd5e1'));
+
       // Executive Corporate-Academic Block
       const base = new THREE.Mesh(new THREE.BoxGeometry(12, 0.4, 9), mat('#334155'));
       base.position.y = 0.2;
@@ -816,21 +923,48 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'stadium': {
       // ⚽ LU Stadium & Arena
-      // Red Athletics Track
-      const track = new THREE.Mesh(new THREE.BoxGeometry(15, 0.05, 11.5), mat('#dc2626', 0.9));
-      track.position.y = 0.03;
+      group.add(createFoundationPlinth(16, 12.5, '#94a3b8'));
+
+      // Red Athletics Track (elevated above foundation)
+      const trackMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#dc2626'),
+        roughness: 0.9,
+        polygonOffset: true,
+        polygonOffsetFactor: -1.0,
+        polygonOffsetUnits: -4.0,
+        depthWrite: true,
+      });
+      const track = new THREE.Mesh(new THREE.BoxGeometry(15, 0.05, 11.5), trackMat);
+      track.position.y = 0.025;
       track.receiveShadow = true;
       group.add(track);
 
-      // Green Football Pitch with Lines
-      const field = new THREE.Mesh(new THREE.BoxGeometry(12, 0.06, 8.5), mat('#15803d', 0.8));
-      field.position.y = 0.04;
+      // Green Football Pitch with Lines (elevated above track)
+      const fieldMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#15803d'),
+        roughness: 0.8,
+        polygonOffset: true,
+        polygonOffsetFactor: -1.5,
+        polygonOffsetUnits: -5.0,
+        depthWrite: true,
+      });
+      const field = new THREE.Mesh(new THREE.BoxGeometry(12, 0.06, 8.5), fieldMat);
+      field.position.y = 0.055;
       group.add(field);
 
-      // White Center Circle & Touchlines
-      const centerCircle = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.3, 16), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+      // White Center Circle & Touchlines (elevated with polygonOffset)
+      const centerCircle = new THREE.Mesh(
+        new THREE.RingGeometry(1.2, 1.3, 16),
+        new THREE.MeshBasicMaterial({
+          color: '#ffffff',
+          polygonOffset: true,
+          polygonOffsetFactor: -2.0,
+          polygonOffsetUnits: -6.0,
+          depthWrite: true,
+        })
+      );
       centerCircle.rotateX(-Math.PI / 2);
-      centerCircle.position.set(0, 0.075, 0);
+      centerCircle.position.set(0, 0.088, 0);
       group.add(centerCircle);
 
       // Goalposts
@@ -872,6 +1006,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'hostels_male': {
       // 🏠 hostels (male) - Emerald Hall
+      group.add(createFoundationPlinth(11.5, 9, '#cbd5e1'));
+
       const dorm = new THREE.Mesh(new THREE.BoxGeometry(10, 4.8, 7.5), mat('#15803d', 0.4)); // Emerald green block
       dorm.position.y = 2.4;
       dorm.castShadow = true;
@@ -899,6 +1035,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'hostels_female': {
       // 🏡 hostels (female) - Pearl Hall
+      group.add(createFoundationPlinth(11, 9, '#cbd5e1'));
+
       const dorm = new THREE.Mesh(new THREE.BoxGeometry(9.5, 4.8, 7.5), mat('#f8fafc', 0.3));
       dorm.position.y = 2.4;
       dorm.castShadow = true;
@@ -926,6 +1064,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'medical_centre': {
       // 🏥 Medical Centre
+      group.add(createFoundationPlinth(11, 8.5, '#cbd5e1'));
+
       const clinic = new THREE.Mesh(new THREE.BoxGeometry(9.5, 3.4, 7.0), mat('#ffffff', 0.3));
       clinic.position.y = 1.7;
       clinic.castShadow = true;
@@ -955,6 +1095,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'guesthouse': {
       // 🏨 University Guesthouse
+      group.add(createFoundationPlinth(11, 9, '#cbd5e1'));
+
       const lodge = new THREE.Mesh(new THREE.BoxGeometry(9.5, 3.6, 7.5), mat('#f8fafc', 0.3));
       lodge.position.y = 1.8;
       lodge.castShadow = true;
@@ -989,6 +1131,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'lions_hall': {
       // 🦁 Lions Hall (Party & Events Venue)
+      group.add(createFoundationPlinth(10, 8.5, '#cbd5e1'));
+
       const mainHall = new THREE.Mesh(new THREE.BoxGeometry(8.5, 3.8, 7.0), mat('#f8fafc', 0.3));
       mainHall.position.y = 1.9;
       mainHall.castShadow = true;
@@ -1030,6 +1174,8 @@ export function createBuildingMesh(landmark: Landmark3D): THREE.Group {
 
     case 'adeline_hall': {
       // 🎧 Adeline Hall (Auditorium & DJ Beats Center)
+      group.add(createFoundationPlinth(9.8, 8.8, '#cbd5e1'));
+
       const audHall = new THREE.Mesh(new THREE.BoxGeometry(8.2, 3.6, 7.2), mat('#ffffff', 0.25));
       audHall.position.y = 1.8;
       audHall.castShadow = true;

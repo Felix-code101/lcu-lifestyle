@@ -129,7 +129,7 @@ export const CAMPUS_3D_LANDMARKS: Landmark3D[] = [
     color: '#f43f5e',
     position: [-22, 0, 18],
     badgeHeight: 7.8,
-    destinationScene: 'cafeteria',
+    destinationScene: 'sub',
     subtitle: 'SUB Lounge & Student Affairs Council',
     description: 'The social hub of Liids University (LU) student life featuring the Student Representative Council chambers, recreation arcade, and outdoor amphitheatre.',
     energyCost: 6,

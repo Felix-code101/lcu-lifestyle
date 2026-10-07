@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useGame } from '../context/GameContext';
+import { useGame, ROOM_THEMES } from '../context/GameContext';
 import type { GameLocation } from '../types/game';
 import {
   Wifi,
@@ -21,29 +21,20 @@ import {
   Crown,
   Backpack,
   Ticket,
+  Sparkles,
+  Map,
+  Palette,
+  Compass,
+  Check,
+  SunMoon,
+  RotateCcw,
+  Radio,
 } from 'lucide-react';
+import { CampusChatApp } from './CampusChatApp';
+import { MessagesApp } from './MessagesApp';
+import type { RemotePlayer } from '../types/game';
 
-type AppId = 'home' | 'bank' | 'chow' | 'gigs' | 'messages' | 'portal' | 'shuttle';
-
-interface ChatMessage {
-  id: string;
-  sender: string;
-  role: string;
-  avatar: string;
-  time: string;
-  unread: boolean;
-  messages: {
-    from: 'npc' | 'player';
-    text: string;
-    timestamp: string;
-  }[];
-  quickReplies: {
-    label: string;
-    responseText: string;
-    rewardDesc: string;
-    action: () => void;
-  }[];
-}
+type AppId = 'home' | 'bank' | 'chow' | 'gigs' | 'messages' | 'portal' | 'shuttle' | 'maps' | 'settings' | 'buzz';
 
 interface FoodItem {
   id: string;
@@ -68,24 +59,34 @@ interface GigItem {
   desc: string;
 }
 
-export const CampusPhone: React.FC = () => {
+interface CampusPhoneProps {
+  allOnlinePlayers?: RemotePlayer[];
+}
+
+export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] }) => {
   const {
     stats,
     addBalance,
     spendBalance,
+    currentLocation,
     navigateToLocation,
     addToast,
     setIsPhoneOpen,
     performActivity,
+    setIsWardrobeOpen,
     setIsElectionsModalOpen,
     setIsHustleModalOpen,
     setIsBettingModalOpen,
+    theme,
+    setTheme,
+    dayNightCycle,
+    setDayNightCycle,
+    triggerResetCamera,
     takeLapoLoan,
     repayLapoLoan,
   } = useGame();
 
   const [activeApp, setActiveApp] = useState<AppId>('home');
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   // Allowance cooldown simulation
   const [allowanceClaimed, setAllowanceClaimed] = useState<boolean>(false);
@@ -217,146 +218,6 @@ export const CampusPhone: React.FC = () => {
     },
   ];
 
-  // Chat Threads
-  const [chatThreads, setChatThreads] = useState<ChatMessage[]>([
-    {
-      id: 'c1',
-      sender: 'Femi (Roommate)',
-      role: 'Hostel Room 204',
-      avatar: '🧑‍🤝‍🧑',
-      time: '10:14 AM',
-      unread: true,
-      messages: [
-        {
-          from: 'npc',
-          text: 'Bro abeg, hunger wan kill person here o! As you dey come hostel, carry cold soft drink and gala come na!',
-          timestamp: '10:14 AM',
-        },
-      ],
-      quickReplies: [
-        {
-          label: '🥤 Buy Gala & Drink for Femi (-₦500)',
-          responseText: 'No wahala Femi, I don buy Gala and chilled malt for you. Coming up!',
-          rewardDesc: '+15 Mood • Friendship Boost',
-          action: () => {
-            if (spendBalance(500)) {
-              addToast('Femi: "Ah God bless you my guy! You be true roommate!"', 'success');
-            }
-          },
-        },
-        {
-          label: '😴 "Stand up go cafeteria yourself bro!"',
-          responseText: 'Guy stand up and exercise your legs to the Bukka haha!',
-          rewardDesc: '+5 Mood',
-          action: () => {
-            addToast('Femi: "Chai, wicked roommate! Okay I go manage biscuit!"', 'info');
-          },
-        },
-      ],
-    },
-    {
-      id: 'c2',
-      sender: 'Tolu (Course Rep)',
-      role: 'Software Eng 300L',
-      avatar: '📢',
-      time: '09:45 AM',
-      unread: true,
-      messages: [
-        {
-          from: 'npc',
-          text: 'Attention 300L: Software Architecture lecture has been moved to Faculty Complex Hall 3 by 12:00 PM. Prof says everyone must present their system diagram!',
-          timestamp: '09:45 AM',
-        },
-      ],
-      quickReplies: [
-        {
-          label: '📖 "Noted Rep! Cramming my system diagram now"',
-          responseText: 'Got it Tolu, reviewing UML microservices diagrams now. Thanks for update!',
-          rewardDesc: '+25 Knowledge • +10 XP',
-          action: () => {
-            performActivity({
-              id: 'cram_diagram',
-              title: 'Crammed UML Diagrams',
-              description: 'Prepared for the lecture change',
-              energyCost: 5,
-              cashCost: 0,
-              cgpaGain: 0.02,
-              moodGain: 5,
-              durationMinutes: 15,
-            });
-          },
-        },
-        {
-          label: '👍 "Confirmed Cap, see you at Hall 3"',
-          responseText: 'Noted, see you guys there on time.',
-          rewardDesc: '+10 XP',
-          action: () => {
-            addToast('Course Rep: "See you in class, First Class scholar!"', 'info');
-          },
-        },
-      ],
-    },
-    {
-      id: 'c3',
-      sender: 'Mama Ronke',
-      role: 'Main Cafeteria Food Vendor',
-      avatar: '🍲',
-      time: 'Yesterday',
-      unread: false,
-      messages: [
-        {
-          from: 'npc',
-          text: 'My pikin! Fresh hot party Jollof and goat meat just come down from fire. Come fast before your classmates finish am o!',
-          timestamp: 'Yesterday',
-        },
-      ],
-      quickReplies: [
-        {
-          label: '😋 "Reserve sweet goat meat for me Mama!"',
-          responseText: 'Mama Ronke, abeg save the biggest goat meat for me, I dey come soon!',
-          rewardDesc: '+10 Mood',
-          action: () => {
-            addToast('Mama Ronke: "I don keep am for inside hot warmer for you!"', 'success');
-          },
-        },
-      ],
-    },
-    {
-      id: 'c4',
-      sender: 'Dr. Adeleke',
-      role: 'Faculty Academic Adviser',
-      avatar: '👨‍🏫',
-      time: 'Yesterday',
-      unread: false,
-      messages: [
-        {
-          from: 'npc',
-          text: 'Adebayo, your term paper on Distributed Consensus algorithms was impressive. Consistent academic rigor will secure your First-Class Honours graduation.',
-          timestamp: 'Yesterday',
-        },
-      ],
-      quickReplies: [
-        {
-          label: '🙇 "Thank you Sir! Working hard for 5.0 CGPA"',
-          responseText: 'Thank you very much Dr. Adeleke! I will remain focused and diligent.',
-          rewardDesc: '+35 XP • +0.02 CGPA',
-          action: () => {
-            performActivity({
-              id: 'honours_prep',
-              title: 'Honours Mentorship Acknowledged',
-              description: 'Received commendation from faculty',
-              energyCost: 0,
-              cashCost: 0,
-              cgpaGain: 0.02,
-              moodGain: 20,
-              durationMinutes: 5,
-            });
-          },
-        },
-      ],
-    },
-  ]);
-
   // Order food handler
   const handleOrderFood = (food: FoodItem) => {
     if (stats.balance < food.price) {
@@ -409,49 +270,36 @@ export const CampusPhone: React.FC = () => {
     addToast(`💼 Gig finished: Received +₦${gig.payout.toLocaleString()} into student bank!`, 'success');
   };
 
-  // Handle Quick Chat Reply
-  const handleReplyChat = (threadId: string, replyIndex: number) => {
-    const thread = chatThreads.find((t) => t.id === threadId);
-    if (!thread) return;
-
-    const reply = thread.quickReplies[replyIndex];
-    if (!reply) return;
-
-    // Execute reply action
-    reply.action();
-
-    // Update conversation in state
-    setChatThreads((prev) =>
-      prev.map((t) => {
-        if (t.id === threadId) {
-          return {
-            ...t,
-            unread: false,
-            messages: [
-              ...t.messages,
-              {
-                from: 'player',
-                text: reply.responseText,
-                timestamp: formatTime(stats.inGameHours, stats.inGameMinutes),
-              },
-            ],
-            // Remove the replied option
-            quickReplies: t.quickReplies.filter((_, idx) => idx !== replyIndex),
-          };
-        }
-        return t;
-      })
-    );
-  };
+  // Campus Landmark Destinations for LU Maps & Fast-Travel
+  const allCampusDestinations: { id: GameLocation; name: string; desc: string; icon: string }[] = [
+    { id: 'campus_map', name: 'Campus 3D Birds-Eye Map', desc: 'Full aerial grounds, landmarks & roads', icon: '🗺️' },
+    { id: 'home_hostel', name: 'Hostel Room & Study', desc: 'Personal living quarters & wardrobe', icon: '🛏️' },
+    { id: 'cafeteria', name: 'Main Cafeteria & Bukka', desc: 'Party jollof, amala, snacks & hangout', icon: '🍲' },
+    { id: 'lecture_theatre', name: 'Faculty Lecture Theatre', desc: 'Classes, revisions & study discussions', icon: '🏛️' },
+    { id: 'library', name: 'University Central Library', desc: 'Quiet research, revision & textbook loans', icon: '📖' },
+    { id: 'sports_arena', name: 'LU Sports Arena', desc: 'Football pitch, penalty kicks & sports terminal', icon: '⚽' },
+    { id: 'medical_centre', name: 'University Medical Centre', desc: 'Clinical care, multivitamins & rest beds', icon: '🏥' },
+    { id: 'guesthouse', name: 'University Guesthouse Suites', desc: 'Executive lounge, luxury lodging & gardens', icon: '🏨' },
+    { id: 'lions_hall', name: 'Lions Hall Male Courtyard', desc: 'Undergraduate hall quad, games & debates', icon: '🦁' },
+    { id: 'adeline_hall', name: 'Adeline Hall Female Quad', desc: 'Undergraduate hall courtyard & music hub', icon: '🏛️' },
+    { id: 'chapel', name: 'Chapel of Grace', desc: 'Sunday worship service & choir fellowship', icon: '⛪' },
+    { id: 'mosque', name: 'University Central Mosque', desc: 'Friday Jumu\'ah khutbah & prayer hall', icon: '🕌' },
+    { id: 'sub', name: 'Student Union Building (SUB)', desc: 'Parliament debates, recreation arcade & student lounge', icon: '🎭' },
+  ];
 
   // Campus Shuttle Fast-Travel
   const campusShuttleDestinations: { id: GameLocation; name: string; tag: string; icon: string }[] = [
     { id: 'home_hostel', name: 'Student Hostel Complex', tag: 'Dorms & Rooms', icon: '🏠' },
+    { id: 'sub', name: 'Student Union Building (SUB)', tag: 'Parliament & Lounge', icon: '🎭' },
     { id: 'campus_map', name: 'Campus 3D Birds-Eye Map', tag: 'Aerial Overview', icon: '🗺️' },
     { id: 'cafeteria', name: 'Main Cafeteria & Bukka', tag: 'Food & Hangout', icon: '🍲' },
     { id: 'lecture_theatre', name: 'Faculty Lecture Theatre', tag: 'FBSS Classes', icon: '🏛️' },
     { id: 'library', name: 'University Central Library', tag: 'Quiet Study & Cram', icon: '📖' },
     { id: 'sports_arena', name: 'LU Sports Arena', tag: 'Football & Fitness', icon: '⚽' },
+    { id: 'medical_centre', name: 'Medical Centre & Clinic', tag: 'Healthcare & Bed Rest', icon: '🏥' },
+    { id: 'guesthouse', name: 'Executive Guesthouse', tag: 'VIP Suites & Lounge', icon: '🏨' },
+    { id: 'lions_hall', name: 'Lions Hall (Male)', tag: 'Hostel Block', icon: '🦁' },
+    { id: 'adeline_hall', name: 'Adeline Hall (Female)', tag: 'Hostel Block', icon: '🏛️' },
   ];
 
   const handleTakeShuttle = (target: GameLocation) => {
@@ -481,7 +329,7 @@ export const CampusPhone: React.FC = () => {
     }
   };
 
-  const totalUnreadMessages = chatThreads.filter((t) => t.unread).length;
+  const totalUnreadMessages = 1;
   const availableGigsCount = campusGigs.filter((g) => !completedGigs.includes(g.id)).length;
 
   return (
@@ -553,19 +401,21 @@ export const CampusPhone: React.FC = () => {
                   </div>
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2">
                     <span className="text-[9px] uppercase tracking-wider text-slate-500 block font-semibold">Academic CGPA</span>
-                    <span className="text-xs font-extrabold text-emerald-600">{stats.cgpa.toFixed(2)} / 5.00</span>
+                    <span className="text-xs font-extrabold text-emerald-600">
+                      {stats.cgpa !== null ? `${stats.cgpa.toFixed(2)} / 5.00` : 'Pending (Fresh)'}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* 4-Column App Grid (Sharp Icons on Bright Background) */}
-              <div className="my-auto py-4 grid grid-cols-4 gap-y-4 gap-x-2 text-center">
+              <div className="my-auto py-3 grid grid-cols-4 gap-y-3.5 gap-x-2 text-center">
                 {/* 1. Bank App */}
                 <button
                   onClick={() => setActiveApp('bank')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 border border-purple-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 border border-purple-200/50 group-hover:scale-105 active:scale-95 transition-transform">
                     <Landmark className="w-6 h-6 text-purple-100" />
                     {!allowanceClaimed && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-[10px] font-black flex items-center justify-center text-white border-2 border-white animate-bounce shadow-sm">
@@ -579,9 +429,9 @@ export const CampusPhone: React.FC = () => {
                 {/* 2. Campus Chow Delivery */}
                 <button
                   onClick={() => setActiveApp('chow')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25 border border-orange-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25 border border-orange-200/50 group-hover:scale-105 active:scale-95 transition-transform">
                     <UtensilsCrossed className="w-6 h-6 text-orange-100" />
                     <span className="absolute -top-1 -right-1 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white border-2 border-white shadow-sm">
                       HOT
@@ -590,28 +440,12 @@ export const CampusPhone: React.FC = () => {
                   <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Chow</span>
                 </button>
 
-                {/* 3. Student Gigs */}
-                <button
-                  onClick={() => setActiveApp('gigs')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
-                >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 border border-cyan-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Briefcase className="w-6 h-6 text-cyan-100" />
-                    {availableGigsCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-[10px] font-bold text-slate-950 flex items-center justify-center border-2 border-white shadow-sm">
-                        {availableGigsCount}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Gigs</span>
-                </button>
-
-                {/* 4. Messages App */}
+                {/* 3. Messages / Chat App */}
                 <button
                   onClick={() => setActiveApp('messages')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
                     <MessageSquare className="w-6 h-6 text-emerald-100" />
                     {totalUnreadMessages > 0 && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm">
@@ -619,15 +453,15 @@ export const CampusPhone: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Chat</span>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Messages</span>
                 </button>
 
-                {/* 5. LU Portal */}
+                {/* 4. LU Portal */}
                 <button
                   onClick={() => setActiveApp('portal')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-rose-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/25 border border-rose-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-rose-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/25 border border-rose-200/50 group-hover:scale-105 active:scale-95 transition-transform">
                     <GraduationCap className="w-6 h-6 text-rose-100" />
                     <span className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-600 text-[8px] font-black text-white border-2 border-white shadow-sm">
                       5.0
@@ -636,49 +470,40 @@ export const CampusPhone: React.FC = () => {
                   <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Portal</span>
                 </button>
 
-                {/* 6. Shuttle Fast-Travel */}
-                <button
-                  onClick={() => setActiveApp('shuttle')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
-                >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/25 border border-yellow-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Car className="w-6 h-6 text-slate-950" />
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-blue-600 text-[8px] font-bold text-white border-2 border-white shadow-sm">
-                      200₦
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Shuttle</span>
-                </button>
-
-                {/* 7. SUG Election App */}
+                {/* 5. 🗳️ SUG Portal App */}
                 <button
                   onClick={() => {
                     setIsPhoneOpen(false);
                     setIsElectionsModalOpen(true);
                   }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-teal-500/25 border border-teal-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-teal-500/25 border border-teal-200/50 group-hover:scale-105 active:scale-95 transition-transform">
                     <Vote className="w-6 h-6 text-yellow-300" />
                     {stats.isSugCandidate && (
                       <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-[8px] font-black text-slate-950 border-2 border-white shadow-sm">
                         CAND
                       </span>
                     )}
+                    {stats.hasWonSugElection && (
+                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-[8px] font-black text-slate-950 border-2 border-white shadow-sm">
+                        👑 SUG
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">SUG Race</span>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">SUG Portal</span>
                 </button>
 
-                {/* 8. Student Hustles App */}
+                {/* 6. 💼 Campus Hustles App */}
                 <button
                   onClick={() => {
                     setIsPhoneOpen(false);
                     setIsHustleModalOpen(true);
                   }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/25 border border-amber-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <ShoppingBag className="w-6 h-6 text-white" />
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/25 border border-amber-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <Briefcase className="w-6 h-6 text-white" />
                     {stats.smallChopsStock > 0 && (
                       <span className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-500 text-[8px] font-bold text-white border-2 border-white shadow-sm">
                         {stats.smallChopsStock}
@@ -688,15 +513,89 @@ export const CampusPhone: React.FC = () => {
                   <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Hustles</span>
                 </button>
 
-                {/* 9. Campus Bet App */}
+                {/* 7. ✨ Wardrobe App */}
+                <button
+                  onClick={() => {
+                    setIsPhoneOpen(false);
+                    setIsWardrobeOpen(true);
+                  }}
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                >
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 border border-purple-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <Sparkles className="w-6 h-6 text-amber-200" />
+                    {stats.spiritualTitle && stats.spiritualTitle !== 'Student' && (
+                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-[8px] font-black text-slate-950 border-2 border-white shadow-sm">
+                        VEST
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Wardrobe</span>
+                </button>
+
+                {/* 8. 🗺️ LU Maps App */}
+                <button
+                  onClick={() => setActiveApp('maps')}
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                >
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <Map className="w-6 h-6 text-emerald-100" />
+                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-800 text-[8px] font-black text-white border-2 border-white shadow-sm">
+                      3D
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">LU Maps</span>
+                </button>
+
+                {/* 9. ⚙️ Campus Settings / Themes App */}
+                <button
+                  onClick={() => setActiveApp('settings')}
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                >
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-700/25 border border-slate-600/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <Palette className="w-6 h-6 text-indigo-300" />
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Themes</span>
+                </button>
+
+                {/* 10. Shuttle Fast-Travel */}
+                <button
+                  onClick={() => setActiveApp('shuttle')}
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                >
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/25 border border-yellow-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <Car className="w-6 h-6 text-slate-950" />
+                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-blue-600 text-[8px] font-bold text-white border-2 border-white shadow-sm">
+                      200₦
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Shuttle</span>
+                </button>
+
+                {/* 11. Student Gigs Board */}
+                <button
+                  onClick={() => setActiveApp('gigs')}
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                >
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 border border-cyan-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <ShoppingBag className="w-6 h-6 text-cyan-100" />
+                    {availableGigsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-[10px] font-bold text-slate-950 flex items-center justify-center border-2 border-white shadow-sm">
+                        {availableGigsCount}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Gigs</span>
+                </button>
+
+                {/* 12. Campus Bet App */}
                 <button
                   onClick={() => {
                     setIsPhoneOpen(false);
                     setIsBettingModalOpen(true);
                   }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden"
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
-                  <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
                     <Ticket className="w-6 h-6 text-yellow-300" />
                     <span className="absolute -top-1 -right-1 px-1 rounded-full bg-rose-500 text-[8px] font-black text-white border-2 border-white shadow-sm">
                       1X2
@@ -704,37 +603,60 @@ export const CampusPhone: React.FC = () => {
                   </div>
                   <span className="text-[11px] font-semibold text-slate-800 tracking-tight">CampusBet</span>
                 </button>
+
+                {/* 13. LU Campus Buzz (Real-time Multiplayer Chat) */}
+                <button
+                  onClick={() => setActiveApp('buzz')}
+                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                >
+                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
+                    <MessageSquare className="w-6 h-6 text-emerald-100" />
+                    <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-emerald-600 text-[8px] font-black text-white border-2 border-white shadow-sm flex items-center gap-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                      LIVE
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">LU Buzz</span>
+                </button>
               </div>
 
               {/* Bottom Quick Launch Dock on Phone (Glassy White Pill) */}
-              <div className="p-2.5 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/90 flex items-center justify-around shadow-sm">
+              <div className="p-2 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/90 flex items-center justify-around shadow-sm">
                 <button
                   onClick={() => setActiveApp('bank')}
-                  className="w-11 h-11 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-purple-600 transition-colors shadow-2xs"
+                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-purple-600 transition-colors shadow-2xs cursor-pointer"
                   title="Bank"
                 >
-                  <Landmark className="w-5 h-5" />
+                  <Landmark className="w-4.5 h-4.5" />
                 </button>
                 <button
                   onClick={() => setActiveApp('chow')}
-                  className="w-11 h-11 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-orange-600 transition-colors shadow-2xs"
+                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-orange-600 transition-colors shadow-2xs cursor-pointer"
                   title="Campus Chow"
                 >
-                  <UtensilsCrossed className="w-5 h-5" />
+                  <UtensilsCrossed className="w-4.5 h-4.5" />
                 </button>
                 <button
                   onClick={() => setActiveApp('messages')}
-                  className="w-11 h-11 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-emerald-600 transition-colors shadow-2xs"
-                  title="Messages"
+                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-emerald-600 transition-colors shadow-2xs cursor-pointer"
+                  title="Messages (1-on-1 DMs)"
                 >
-                  <MessageSquare className="w-5 h-5" />
+                  <MessageSquare className="w-4.5 h-4.5" />
                 </button>
                 <button
-                  onClick={() => setActiveApp('portal')}
-                  className="w-11 h-11 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-rose-600 transition-colors shadow-2xs"
-                  title="Portal"
+                  onClick={() => setActiveApp('buzz')}
+                  className="relative w-10 h-10 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 flex items-center justify-center text-teal-600 transition-colors shadow-2xs cursor-pointer border border-teal-200/60"
+                  title="LU Buzz (Live Campus Chat)"
                 >
-                  <GraduationCap className="w-5 h-5" />
+                  <Radio className="w-4.5 h-4.5" />
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 animate-pulse border border-white" />
+                </button>
+                <button
+                  onClick={() => setActiveApp('maps')}
+                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-teal-600 transition-colors shadow-2xs cursor-pointer"
+                  title="LU Maps"
+                >
+                  <Map className="w-4.5 h-4.5" />
                 </button>
               </div>
             </div>
@@ -1116,119 +1038,14 @@ export const CampusPhone: React.FC = () => {
           )}
 
           {/* ============================================================== */}
-          {/* APP SCREEN 5: MESSAGES (Campus NPC Chat Threads) */}
+          {/* APP SCREEN 5: MESSAGES (1-on-1 Real-Time DM Chat App)          */}
           {/* ============================================================== */}
           {activeApp === 'messages' && (
-            <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-200">
-              {/* App Header */}
-              <div className="flex items-center justify-between px-4 py-3 bg-white/95 border-b border-slate-200">
-                <button
-                  onClick={() => {
-                    if (selectedChatId) setSelectedChatId(null);
-                    else setActiveApp('home');
-                  }}
-                  className="p-1.5 -ml-1.5 rounded-full hover:bg-slate-100 text-slate-700 flex items-center gap-1 text-xs font-semibold"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  {selectedChatId ? 'Inbox' : 'Back'}
-                </button>
-                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                  {selectedChatId
-                    ? chatThreads.find((t) => t.id === selectedChatId)?.sender
-                    : 'Campus Messages'}
-                </span>
-                <span className="w-6" />
-              </div>
-
-              {/* Chat Inbox View */}
-              {!selectedChatId && (
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 text-xs">
-                  {chatThreads.map((thread) => (
-                    <button
-                      key={thread.id}
-                      onClick={() => {
-                        setSelectedChatId(thread.id);
-                        // Mark as read
-                        setChatThreads((prev) =>
-                          prev.map((t) => (t.id === thread.id ? { ...t, unread: false } : t))
-                        );
-                      }}
-                      className="w-full text-left p-3 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/90 flex items-center gap-3 transition-colors shadow-xs"
-                    >
-                      <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200/60 flex items-center justify-center text-xl shrink-0">
-                        {thread.avatar}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <h4 className="font-bold text-slate-900 text-[11px] truncate">{thread.sender}</h4>
-                          <span className="text-[9px] text-slate-400">{thread.time}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 line-clamp-1">
-                          {thread.messages[thread.messages.length - 1]?.text}
-                        </p>
-                      </div>
-                      {thread.unread && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 ring-2 ring-emerald-200 animate-pulse" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Individual Active Chat Conversation */}
-              {selectedChatId && (
-                <div className="flex-1 flex flex-col justify-between overflow-hidden p-3 text-xs bg-slate-50/60">
-                  {/* Messages Bubble History */}
-                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                    {chatThreads
-                      .find((t) => t.id === selectedChatId)
-                      ?.messages.map((m, idx) => (
-                        <div
-                          key={idx}
-                          className={`flex flex-col ${m.from === 'player' ? 'items-end' : 'items-start'}`}
-                        >
-                          <div
-                            className={`max-w-[85%] p-3 rounded-2xl shadow-xs ${
-                              m.from === 'player'
-                                ? 'bg-emerald-600 text-white rounded-br-xs'
-                                : 'bg-white text-slate-800 rounded-bl-xs border border-slate-200/80'
-                            }`}
-                          >
-                            <p className="text-[11px] leading-relaxed">{m.text}</p>
-                            <span className={`text-[8px] mt-1 block text-right ${m.from === 'player' ? 'text-white/70' : 'text-slate-400'}`}>
-                              {m.timestamp}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-
-                  {/* Interactive Quick Reply Choices */}
-                  <div className="pt-2 border-t border-slate-200 space-y-1.5 shrink-0 bg-white p-2.5 rounded-t-2xl shadow-xs">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block px-1 font-bold">
-                      Quick Responses:
-                    </span>
-                    {chatThreads.find((t) => t.id === selectedChatId)?.quickReplies.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 italic px-1">Chat caught up for now.</p>
-                    ) : (
-                      chatThreads
-                        .find((t) => t.id === selectedChatId)
-                        ?.quickReplies.map((reply, rIdx) => (
-                          <button
-                            key={rIdx}
-                            onClick={() => handleReplyChat(selectedChatId, rIdx)}
-                            className="w-full text-left p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 flex items-center justify-between text-[10px] text-slate-800 transition-all active:scale-95"
-                          >
-                            <span className="font-semibold">{reply.label}</span>
-                            <span className="text-[9px] text-emerald-600 font-bold">{reply.rewardDesc}</span>
-                          </button>
-                        ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <MessagesApp
+              onBackToHome={() => setActiveApp('home')}
+              allOnlinePlayers={allOnlinePlayers}
+              onOpenCampusBuzz={() => setActiveApp('buzz')}
+            />
           )}
 
           {/* ============================================================== */}
@@ -1263,19 +1080,29 @@ export const CampusPhone: React.FC = () => {
                     <div>
                       <h3 className="font-extrabold text-white text-sm">Student Adebayo</h3>
                       <p className="text-[10px] text-rose-200 font-mono">{stats.matricNo}</p>
-                      <p className="text-[9px] text-white/80">{stats.department} • 300 Level</p>
+                      <p className="text-[9px] text-white/80">{stats.department} • {stats.academicLevel || `${stats.currentLevel || 100} Level`}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/15">
                     <div className="bg-black/30 rounded-xl p-2 text-center">
                       <span className="text-[8px] uppercase tracking-wider text-white/70 block">Cumulative GPA</span>
-                      <span className="text-base font-black text-emerald-300">{stats.cgpa.toFixed(2)}</span>
+                      <span className="text-base font-black text-emerald-300">
+                        {stats.cgpa !== null ? stats.cgpa.toFixed(2) : 'Pending'}
+                      </span>
                     </div>
                     <div className="bg-black/30 rounded-xl p-2 text-center">
                       <span className="text-[8px] uppercase tracking-wider text-white/70 block">Honours Status</span>
                       <span className="text-[10px] font-bold text-amber-300">
-                        {stats.cgpa >= 4.5 ? 'First Class 🏅' : stats.cgpa >= 3.5 ? 'Second Class Upper' : 'Second Class Lower'}
+                        {stats.cgpa === null
+                          ? 'Awaiting 1st Exam'
+                          : stats.cgpa >= 4.5
+                          ? 'First Class 🏅'
+                          : stats.cgpa >= 3.5
+                          ? 'Second Class Upper'
+                          : stats.cgpa >= 2.4
+                          ? 'Second Class Lower'
+                          : 'Third Class'}
                       </span>
                     </div>
                   </div>
@@ -1397,6 +1224,302 @@ export const CampusPhone: React.FC = () => {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* APP SCREEN 8: LU MAPS & CAMPUS NAVIGATION */}
+          {/* ============================================================== */}
+          {activeApp === 'maps' && (
+            <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-200">
+              {/* App Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-white/95 border-b border-slate-200">
+                <button
+                  onClick={() => setActiveApp('home')}
+                  className="p-1.5 -ml-1.5 rounded-full hover:bg-slate-100 text-slate-700 flex items-center gap-1 text-xs font-semibold"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Map className="w-3.5 h-3.5 text-emerald-600" />
+                  LU Maps & Navigation
+                </span>
+                <span className="w-6" />
+              </div>
+
+              {/* Sub-header Banner */}
+              <div className="p-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 flex items-center justify-between shadow-xs">
+                <div>
+                  <span className="text-xs font-extrabold block">🗺️ 3D Campus Grounds & Transit</span>
+                  <span className="text-[10px] text-emerald-100">Live GPS • Direct Walk & Keke Shuttle</span>
+                </div>
+                <Compass className="w-6 h-6 text-emerald-200" />
+              </div>
+
+              {/* Scrollable Map Destinations */}
+              <div className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
+                {/* 3D Interactive Map Hero Card */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-slate-50 border border-emerald-200/80 shadow-xs">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">Aerial 3D View</span>
+                      <h4 className="font-extrabold text-slate-900 text-sm">Interactive Campus 3D Grounds</h4>
+                      <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                        Full 3D birds-eye perspective of faculties, halls, cafeteria, and central quad.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    {currentLocation === 'campus_map' ? (
+                      <div className="flex-1 py-2 px-3 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-center text-xs flex items-center justify-center gap-1.5">
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        Currently Viewing 3D Map
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          navigateToLocation('campus_map');
+                          setIsPhoneOpen(false);
+                          addToast('🗺️ Switched to Interactive 3D Campus Map', 'info');
+                        }}
+                        className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-center text-xs shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Map className="w-4 h-4" />
+                        Launch 3D Map View
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Destinations List */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Campus Locations & Fast Transit</span>
+                    <span className="text-[10px] text-slate-500">{allCampusDestinations.length} Landmarks</span>
+                  </div>
+                  <div className="space-y-2">
+                    {allCampusDestinations.map((dest) => {
+                      const isCurrent = currentLocation === dest.id;
+                      return (
+                        <div
+                          key={dest.id}
+                          className={`p-3 rounded-2xl border transition-all shadow-xs ${
+                            isCurrent
+                              ? 'bg-emerald-50/70 border-emerald-300 ring-1 ring-emerald-400/30'
+                              : 'bg-white hover:bg-slate-50 border-slate-200/90'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-2xl">{dest.icon}</span>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <h5 className="font-bold text-slate-900 text-xs">{dest.name}</h5>
+                                  {isCurrent && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-extrabold text-[9px]">
+                                      YOU ARE HERE
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{dest.desc}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {!isCurrent && (
+                            <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  navigateToLocation(dest.id);
+                                  setIsPhoneOpen(false);
+                                  addToast(`🚶 Trekked to ${dest.name}`, 'info');
+                                }}
+                                className="flex-1 py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[10px] flex items-center justify-center gap-1 transition-all active:scale-95"
+                              >
+                                🚶 Trek (Free)
+                              </button>
+                              <button
+                                onClick={() => handleTakeShuttle(dest.id)}
+                                className="flex-1 py-1.5 px-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-[10px] flex items-center justify-center gap-1 transition-all shadow-xs active:scale-95"
+                              >
+                                <Car className="w-3 h-3" />
+                                Keke (₦200)
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* APP SCREEN 9: CAMPUS SETTINGS & THEMES */}
+          {/* ============================================================== */}
+          {activeApp === 'settings' && (
+            <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-200">
+              {/* App Header */}
+              <div className="flex items-center justify-between px-4 py-3 bg-white/95 border-b border-slate-200">
+                <button
+                  onClick={() => setActiveApp('home')}
+                  className="p-1.5 -ml-1.5 rounded-full hover:bg-slate-100 text-slate-700 flex items-center gap-1 text-xs font-semibold"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-slate-800" />
+                  Campus Settings & Themes
+                </span>
+                <span className="w-6" />
+              </div>
+
+              {/* Sub-header Banner */}
+              <div className="p-3 bg-gradient-to-r from-slate-800 to-slate-900 text-white px-4 flex items-center justify-between shadow-xs">
+                <div>
+                  <span className="text-xs font-extrabold block">⚙️ System & Display Preferences</span>
+                  <span className="text-[10px] text-slate-300">Room Palettes • Lighting Engine • 3D View</span>
+                </div>
+                <span className="text-xl">🎨</span>
+              </div>
+
+              {/* Settings Body */}
+              <div className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
+                {/* Theme Presets */}
+                <div>
+                  <div className="mb-2">
+                    <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider block">Room & Campus Themes</span>
+                    <span className="text-[10px] text-slate-500">Select lighting and room aesthetic presets</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {ROOM_THEMES.map((t) => {
+                      const isSelected = theme.name === t.name;
+                      return (
+                        <button
+                          key={t.name}
+                          onClick={() => {
+                            setTheme(t);
+                            addToast(`🎨 Theme changed to ${t.name}`, 'success');
+                          }}
+                          className={`w-full p-3 rounded-2xl border text-left transition-all flex items-center justify-between shadow-xs ${
+                            isSelected
+                              ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-emerald-500/50'
+                              : 'bg-white hover:bg-slate-50 text-slate-900 border-slate-200/90'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Palette color preview swatches */}
+                            <div className="flex -space-x-1.5 items-center">
+                              <span
+                                className="w-5 h-5 rounded-full border-2 border-white shadow-xs inline-block"
+                                style={{ backgroundColor: t.floorColor }}
+                              />
+                              <span
+                                className="w-5 h-5 rounded-full border-2 border-white shadow-xs inline-block"
+                                style={{ backgroundColor: t.wallColor }}
+                              />
+                              <span
+                                className="w-5 h-5 rounded-full border-2 border-white shadow-xs inline-block"
+                                style={{ backgroundColor: t.gridColor }}
+                              />
+                            </div>
+                            <div>
+                              <h4 className={`font-bold text-xs ${isSelected ? 'text-white' : 'text-slate-900'}`}>{t.name}</h4>
+                              <span className={`text-[10px] ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                                {t.name === 'Liids Emerald'
+                                  ? 'Signature university emerald & slate'
+                                  : t.name === 'Classic White'
+                                  ? 'Clean, minimalist daylight white studio'
+                                  : t.name === 'Cyberpunk Neon'
+                                  ? 'Futuristic neon indigo & magenta'
+                                  : t.name === 'Cozy Loft'
+                                  ? 'Warm wood, terracotta & sunny ambiance'
+                                  : 'Muted slate & architectural gray'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isSelected && (
+                            <span className="px-2 py-1 rounded-lg bg-emerald-500 text-white font-extrabold text-[10px] flex items-center gap-1 shadow-xs">
+                              <Check className="w-3 h-3" />
+                              Active
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Day / Night Cycle Toggle */}
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+                        <SunMoon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-xs">Dynamic Day / Night Cycle</h4>
+                        <span className="text-[10px] text-slate-500 block">Gradual morning, afternoon and twilight lighting</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDayNightCycle(!dayNightCycle);
+                        addToast(`🌓 Dynamic lighting ${!dayNightCycle ? 'enabled' : 'disabled'}`, 'info');
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
+                        dayNightCycle ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                          dayNightCycle ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Camera Reset */}
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
+                        <RotateCcw className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-xs">Reset 3D Camera</h4>
+                        <span className="text-[10px] text-slate-500 block">Re-center camera perspective in current room</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        triggerResetCamera();
+                        addToast('🎥 3D Camera reset to default perspective', 'info');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[10px] flex items-center gap-1 active:scale-95 transition-all"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* APP SCREEN 10: LU CAMPUS BUZZ (REAL-TIME MULTIPLAYER CHAT)     */}
+          {/* ============================================================== */}
+          {activeApp === 'buzz' && (
+            <CampusChatApp
+              onBack={() => setActiveApp('home')}
+              onlinePlayersCount={allOnlinePlayers.length}
+            />
           )}
 
           {/* ============================================================== */}

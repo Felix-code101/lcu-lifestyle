@@ -126,7 +126,7 @@ export const MatriculationModal: React.FC = () => {
       level: '100 Level (Fresher)',
       status: rollResult,
       balance: initialBalance,
-      cgpa: 4.50, // Starting first-class slate
+      cgpa: null, // Freshers spawn with pending CGPA
       createdAt: new Date().toISOString(),
       lastActive: new Date().toISOString(),
       isOnline: true,

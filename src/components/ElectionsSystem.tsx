@@ -38,7 +38,7 @@ export const ElectionsSystem: React.FC = () => {
 
   if (!isElectionsModalOpen) return null;
 
-  const meetsCgpa = stats.cgpa >= 3.0;
+  const meetsCgpa = stats.cgpa === null || stats.cgpa >= 3.0;
   const meetsDiscipline = stats.disciplinaryStrikes === 0 && !stats.isSuspended;
   const meetsFunds = stats.balance >= 100000;
   const canRegister = meetsCgpa && meetsDiscipline && meetsFunds && !stats.isSugCandidate;
@@ -190,7 +190,7 @@ export const ElectionsSystem: React.FC = () => {
                     )}
                   </div>
                   <p className="text-base font-black text-slate-900 font-mono">
-                    {stats.cgpa.toFixed(2)} / 5.00
+                    {stats.cgpa !== null ? `${stats.cgpa.toFixed(2)} / 5.00` : 'Pending (Provisional)'}
                   </p>
                   <p className="text-[10px] text-slate-500 mt-1">Minimum 3.0 required</p>
                 </div>

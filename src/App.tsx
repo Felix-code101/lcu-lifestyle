@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import { IsometricCanvas } from './components/IsometricCanvas';
 import { CampusMap3D } from './components/CampusMap3D';
@@ -22,6 +22,7 @@ import { AmbulanceCollapseModal } from './components/AmbulanceCollapseModal';
 import { SportsComplexScene } from './components/SportsComplexScene';
 import { LionsHallScene } from './components/LionsHallScene';
 import { AdelineHallScene } from './components/AdelineHallScene';
+import { StudentUnionScene } from './components/StudentUnionScene';
 import { PenaltyShootoutModal } from './components/PenaltyShootoutModal';
 import { BettingTerminalModal } from './components/BettingTerminalModal';
 import { useMultiplayer } from './hooks/useMultiplayer';
@@ -36,8 +37,6 @@ function GameRoot() {
     setActiveDialogueNPC,
     stats,
     playerCustomization,
-    isAdminOpen,
-    setIsAdminOpen,
     setSocioeconomicStatus,
     addToast,
   } = useGame();
@@ -45,14 +44,10 @@ function GameRoot() {
   // Local multiplayer ID (persistent per student matric no)
   const localId = stats.matricNo ? `student_${stats.matricNo.replace(/\//g, '_')}` : 'student_local';
 
-  // Initialize Real-Time Multiplayer Infrastructure
+  // Initialize Real-Time Multiplayer Infrastructure for Students
   const {
     remotePlayers,
     allOnlinePlayers,
-    registeredStudents,
-    refreshStudentsList,
-    changeStudentStatus,
-    sendAnnouncement,
     activeCampusAnnouncement,
     clearAnnouncement,
   } = useMultiplayer({
@@ -72,29 +67,6 @@ function GameRoot() {
       addToast(`📢 ${sender}: "${message}"`, 'info');
     },
   });
-
-  // Global Admin Keyboard Shortcut: Ctrl + Shift + A
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
-        e.preventDefault();
-        setIsAdminOpen((prev: boolean) => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setIsAdminOpen]);
-
-  // Support /#admin in URL
-  useEffect(() => {
-    const handleHashChange = () => {
-      if (window.location.hash === '#admin') {
-        setIsAdminOpen(true);
-      }
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [setIsAdminOpen]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-white font-sans select-none">
@@ -117,7 +89,7 @@ function GameRoot() {
             </div>
             <button
               onClick={clearAnnouncement}
-              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors shrink-0"
+              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors shrink-0 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -126,25 +98,33 @@ function GameRoot() {
       )}
 
       {/* 3D Isometric View: Campus 3D Map, Dedicated Interior Scenes, or Hostel Interior with Remote Multiplayer Players */}
-      {currentLocation === 'campus_map' ? (
-        <CampusMap3D />
-      ) : currentLocation === 'guesthouse' ? (
-        <GuesthouseScene remotePlayers={remotePlayers} />
-      ) : currentLocation === 'medical_centre' ? (
-        <MedicalCentreScene remotePlayers={remotePlayers} />
-      ) : currentLocation === 'sports_arena' ? (
-        <SportsComplexScene remotePlayers={remotePlayers} />
-      ) : currentLocation === 'lions_hall' ? (
-        <LionsHallScene remotePlayers={remotePlayers} />
-      ) : currentLocation === 'adeline_hall' ? (
-        <AdelineHallScene remotePlayers={remotePlayers} />
-      ) : (
-        <>
-          <IsometricCanvas remotePlayers={remotePlayers} />
-          <LocationActivityBar />
-          <HostelSidebarNav />
-        </>
-      )}
+      {(() => {
+        switch (currentLocation as string) {
+          case 'campus_map':
+            return <CampusMap3D />;
+          case 'guesthouse':
+            return <GuesthouseScene remotePlayers={remotePlayers} />;
+          case 'medical_centre':
+            return <MedicalCentreScene remotePlayers={remotePlayers} />;
+          case 'sports_arena':
+            return <SportsComplexScene remotePlayers={remotePlayers} />;
+          case 'lions_hall':
+            return <LionsHallScene remotePlayers={remotePlayers} />;
+          case 'adeline_hall':
+            return <AdelineHallScene remotePlayers={remotePlayers} />;
+          case 'Student Union Building':
+          case 'sub':
+            return <StudentUnionScene remotePlayers={remotePlayers} />;
+          default:
+            return (
+              <>
+                <IsometricCanvas remotePlayers={remotePlayers} />
+                <LocationActivityBar />
+                <HostelSidebarNav />
+              </>
+            );
+        }
+      })()}
 
       {/* Floating UI Overlays */}
       <TopBar />
@@ -155,7 +135,7 @@ function GameRoot() {
       {isWardrobeOpen && <CustomizeCharacterModal />}
 
       {/* Interactive Smartphone Modal */}
-      {isPhoneOpen && <CampusPhone />}
+      {isPhoneOpen && <CampusPhone allOnlinePlayers={allOnlinePlayers} />}
 
       {/* Interactive Sunday Sermon & Friday Khutbah Minigame Modal */}
       <SermonKhutbahModal />
@@ -188,25 +168,48 @@ function GameRoot() {
 
       {/* Fresher Matriculation Onboarding & 15% Nepo / 85% Lapo Roll Modal */}
       {!stats.isRegistered && <MatriculationModal />}
-
-      {/* Admin Dashboard Control Panel */}
-      <AdminDashboard
-        isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
-        registeredStudents={registeredStudents}
-        allOnlinePlayers={allOnlinePlayers}
-        onUpdateStudentStatus={changeStudentStatus}
-        onSendAnnouncement={sendAnnouncement}
-        onRefresh={refreshStudentsList}
-      />
     </div>
   );
 }
 
+// Client Route Detection for Dedicated /admin-portal Route
+const getIsAdminRoute = () => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const hash = window.location.hash;
+  return path === '/admin-portal' || hash === '#/admin-portal' || hash === '#admin-portal';
+};
+
 export function App() {
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(getIsAdminRoute);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setIsAdminRoute(getIsAdminRoute());
+    };
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+    };
+  }, []);
+
   return (
     <GameProvider>
-      <GameRoot />
+      {isAdminRoute ? (
+        <>
+          <AdminDashboard
+            onLogout={() => {
+              window.history.pushState(null, '', '/');
+              setIsAdminRoute(false);
+            }}
+          />
+          <GameNotifications />
+        </>
+      ) : (
+        <GameRoot />
+      )}
     </GameProvider>
   );
 }

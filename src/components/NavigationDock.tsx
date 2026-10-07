@@ -111,15 +111,15 @@ export const NavigationDock: React.FC = () => {
 
   return (
     <>
-      {/* Floating Active Panel Drawer / Modal */}
+      {/* Floating Active Panel Drawer / Modal with Backdrop Dimming (z-50) */}
       {activeTab && activeTab !== 'map' && (
         <div
           onClick={closePanel}
-          className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-5 bg-slate-900/30 backdrop-blur-xs pointer-events-auto animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 pb-24 sm:pb-6 bg-slate-900/40 backdrop-blur-xs pointer-events-auto animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg p-4 sm:p-6 rounded-3xl bg-white/95 backdrop-blur-2xl border border-slate-200 shadow-2xl max-h-[85vh] flex flex-col transition-all overflow-y-auto"
+            className="w-full max-w-lg p-3 sm:p-6 rounded-3xl bg-white/98 backdrop-blur-2xl border border-slate-200 shadow-2xl max-h-[85vh] flex flex-col transition-all overflow-y-auto"
           >
             {activeTab === 'build' && <BuildPanel onClose={closePanel} />}
             {activeTab === 'shop' && <ShopPanel onClose={closePanel} />}
@@ -130,9 +130,9 @@ export const NavigationDock: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Bottom Navigation Dock */}
-      <nav className="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-        <div className="flex items-center gap-1 sm:gap-1.5 p-1.5 sm:p-2 rounded-3xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-xl">
+      {/* Fixed Bottom Navigation Dock (Fixed, bottom: 0, z-index: 40) */}
+      <nav className="fixed bottom-0 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 sm:bottom-3 z-40 sm:w-auto pointer-events-none flex justify-center">
+        <div className="w-full sm:w-auto flex items-center justify-around sm:justify-center gap-0.5 sm:gap-1.5 p-1 sm:p-2 bg-white/95 backdrop-blur-xl border-t sm:border border-slate-200/90 sm:rounded-3xl shadow-2xl pointer-events-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive =
@@ -145,22 +145,22 @@ export const NavigationDock: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
-                className={`group relative flex flex-col items-center justify-center w-14 sm:w-16 h-12 sm:h-14 rounded-2xl transition-all duration-200 ${
+                className={`group relative flex flex-col items-center justify-center flex-1 sm:flex-none w-12 sm:w-16 h-12 sm:h-14 rounded-2xl transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? 'bg-slate-100 text-slate-900 shadow-sm'
+                    ? 'bg-slate-100 text-slate-900 shadow-xs'
                     : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}
               >
                 {/* Active glow accent line */}
                 {isActive && (
                   <div
-                    className={`absolute -top-1 w-7 sm:w-8 h-1 rounded-full bg-gradient-to-r ${tab.glowColor} shadow-xs`}
+                    className={`absolute -top-1 w-6 sm:w-8 h-1 rounded-full bg-gradient-to-r ${tab.glowColor} shadow-xs`}
                   />
                 )}
 
                 {/* Badge if available */}
                 {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className="absolute top-1 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-[10px] font-bold text-white flex items-center justify-center border border-white">
+                  <span className="absolute top-1 right-1.5 min-w-[15px] h-3.5 px-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-white flex items-center justify-center border border-white">
                     {tab.badge}
                   </span>
                 )}

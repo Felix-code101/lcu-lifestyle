@@ -727,14 +727,14 @@ export const CampusMap3D: React.FC = () => {
       </div>
 
       {/* Top Controls Overlay */}
-      <div className="absolute top-20 left-4 right-4 z-30 pointer-events-none flex items-center justify-between gap-3">
+      <div className="fixed top-[92px] sm:top-24 left-2 sm:left-4 right-2 sm:right-4 z-20 pointer-events-none flex items-center justify-between gap-2 sm:gap-3">
         {/* Left: Campus Badge & Return to Hostel (Home) */}
-        <div className="pointer-events-auto flex items-center gap-2.5">
+        <div className="pointer-events-auto flex items-center gap-2">
           <button
             onClick={() => navigateToLocation('home_hostel')}
-            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/95 backdrop-blur-md border border-emerald-500/50 hover:border-emerald-600 text-emerald-700 hover:text-emerald-900 shadow-xl transition-all active:scale-95 text-xs font-bold cursor-pointer"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-md border border-emerald-500/50 hover:border-emerald-600 text-emerald-700 hover:text-emerald-900 shadow-md transition-all active:scale-95 text-xs font-bold cursor-pointer"
           >
-            <Home className="w-4 h-4 text-emerald-600" />
+            <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
             <span>Return to Hostel (Home)</span>
           </button>
 
@@ -745,38 +745,38 @@ export const CampusMap3D: React.FC = () => {
         </div>
 
         {/* Right: Map Recenter & Guide Hint */}
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() => {
               setSelectedBillboard(billboards[0]);
               setIsBillboardModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
           >
             <Megaphone className="w-3.5 h-3.5 text-emerald-600" />
             <span>Ad Stand</span>
           </button>
 
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 shadow-sm text-[11px] text-slate-600 font-mono">
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-200 shadow-xs text-[11px] text-slate-600 font-mono">
             <span>🖱️ Drag to pan • Scroll to zoom</span>
           </div>
 
           <button
             onClick={handleRecenter}
             title="Recenter Camera onto Senate Building"
-            className="p-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
+            className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-md text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
 
       {/* Live Active Transit Tracking HUD Overlay */}
       {transitHUD && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-40 px-5 py-2.5 rounded-2xl bg-white/98 backdrop-blur-2xl border border-slate-200 shadow-2xl flex items-center gap-3 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
-          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-xl shrink-0 border border-emerald-200 shadow-xs">
+        <div className="fixed top-[92px] sm:top-24 left-1/2 -translate-x-1/2 z-30 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white/98 backdrop-blur-2xl border border-slate-200 shadow-2xl flex items-center gap-2.5 sm:gap-3 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-lg sm:text-xl shrink-0 border border-emerald-200 shadow-2xs">
             {transitHUD.mode === 'trek' ? (
-              <Footprints className="w-5 h-5 text-emerald-600 animate-pulse" />
+              <Footprints className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 animate-pulse" />
             ) : (
               '🛺'
             )}

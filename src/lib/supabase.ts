@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { RegisteredStudent, SocioeconomicStatus } from '../types/game';
 
 // Environment variables for Supabase (optional: works seamlessly in offline/fallback mode if absent)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://avnsouavfrhwjcgxjmiv.supabase.co';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://avnsouavfrhwjcgzjmiv.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2bnNvdWF2ZnJod2pjZ3pqbWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMDU2MDIsImV4cCI6MjEwNjg4MTYwMn0.sQI8wbBOf690MsrvoAzbvQWDVbXE9rdfmeO8mEZAejE';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);

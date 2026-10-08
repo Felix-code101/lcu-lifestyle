@@ -493,13 +493,94 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
       }
 
       case 'braids': {
-        // Braided cornrow rows
+        // Braided cornrow rows on scalp
         for (let r = -2; r <= 2; r++) {
           const rowGeo = new THREE.BoxGeometry(0.1, 0.14, 0.72);
           const row = new THREE.Mesh(rowGeo, hairMat);
           row.position.set(r * 0.14, 2.96, -0.02);
           bodyGroup.add(row);
         }
+
+        // Hanging braids for female or long styles
+        const hangingBraidsGeo = new THREE.BoxGeometry(0.09, 0.6, 0.09);
+        [-0.34, 0.34, -0.22, 0.22].forEach((bx) => {
+          const bMesh = new THREE.Mesh(hangingBraidsGeo, hairMat);
+          bMesh.position.set(bx, 2.62, -0.15);
+          bodyGroup.add(bMesh);
+        });
+        break;
+      }
+
+      case 'bob': {
+        // Sleek feminine bob haircut
+        const bobTopGeo = new THREE.BoxGeometry(0.82, 0.26, 0.76);
+        const bobTop = new THREE.Mesh(bobTopGeo, hairMat);
+        bobTop.position.set(0, 2.98, -0.02);
+        bodyGroup.add(bobTop);
+
+        const bobSideGeo = new THREE.BoxGeometry(0.12, 0.58, 0.68);
+        const bL = new THREE.Mesh(bobSideGeo, hairMat);
+        bL.position.set(-0.42, 2.68, 0);
+        bodyGroup.add(bL);
+
+        const bR = new THREE.Mesh(bobSideGeo, hairMat);
+        bR.position.set(0.42, 2.68, 0);
+        bodyGroup.add(bR);
+
+        const bobBackGeo = new THREE.BoxGeometry(0.76, 0.52, 0.12);
+        const bBack = new THREE.Mesh(bobBackGeo, hairMat);
+        bBack.position.set(0, 2.7, -0.34);
+        bodyGroup.add(bBack);
+        break;
+      }
+
+      case 'ponytail': {
+        // High ponytail style
+        const pTopGeo = new THREE.BoxGeometry(0.78, 0.25, 0.72);
+        const pTop = new THREE.Mesh(pTopGeo, hairMat);
+        pTop.position.set(0, 2.97, -0.02);
+        bodyGroup.add(pTop);
+
+        // Gold / vibrant hair band
+        const tieGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.06, 8);
+        const tieMat = mat('#facc15', 0.2, 0.8);
+        const tie = new THREE.Mesh(tieGeo, tieMat);
+        tie.rotation.x = Math.PI / 2;
+        tie.position.set(0, 2.95, -0.38);
+        bodyGroup.add(tie);
+
+        // Hanging ponytail bunch
+        const tailGeo = new THREE.BoxGeometry(0.18, 0.62, 0.16);
+        const tail = new THREE.Mesh(tailGeo, hairMat);
+        tail.rotation.x = 0.15;
+        tail.position.set(0, 2.58, -0.44);
+        bodyGroup.add(tail);
+        break;
+      }
+
+      case 'gele': {
+        // Traditional Nigerian Gele Headwrap
+        const geleMat = mat('#d97706', 0.3, 0.4); // Royal Ochre Gold Gele
+        const wrapBaseGeo = new THREE.CylinderGeometry(0.46, 0.44, 0.32, 12);
+        const wrapBase = new THREE.Mesh(wrapBaseGeo, geleMat);
+        wrapBase.position.set(0, 3.02, 0);
+        bodyGroup.add(wrapBase);
+
+        // Gele Fan Crest
+        const fanGeo = new THREE.BoxGeometry(0.96, 0.24, 0.38);
+        const fan = new THREE.Mesh(fanGeo, geleMat);
+        fan.position.set(0, 3.22, 0.04);
+        fan.rotation.x = -0.2;
+        bodyGroup.add(fan);
+        break;
+      }
+
+      case 'waves': {
+        // 360 wave cuts
+        const waveGeo = new THREE.BoxGeometry(0.76, 0.2, 0.7);
+        const waves = new THREE.Mesh(waveGeo, hairMat);
+        waves.position.set(0, 2.95, -0.02);
+        bodyGroup.add(waves);
         break;
       }
 

@@ -92,9 +92,12 @@ export interface PlayerStats {
   isRegistered: boolean;
   username: string;
   department: string;
+  faculty?: string;
   matricNo: string;
   academicLevel: string; // "100 Level (Fresher)"
   status: SocioeconomicStatus; // 'nepo' (15%) or 'lapo' (85%)
+  gender?: CharacterGender;
+  email?: string;
   isAdmin: boolean;
   activeLoanAmount: number;
 
@@ -245,8 +248,11 @@ export interface RegisteredStudent {
   username: string;
   matricNo: string;
   department: string;
+  faculty?: string;
   level: string;
   status: SocioeconomicStatus;
+  gender?: CharacterGender;
+  email?: string;
   balance: number;
   cgpa: number | null;
   createdAt: string;
@@ -303,7 +309,20 @@ export interface Landmark3D {
   features: string[];
 }
 
-export type HairStyle = 'short' | 'afro' | 'dreads' | 'fade' | 'braids' | 'none';
+export type CharacterGender = 'male' | 'female';
+
+export type HairStyle =
+  | 'short'
+  | 'fade'
+  | 'afro'
+  | 'dreads'
+  | 'braids'
+  | 'waves'
+  | 'bob'
+  | 'ponytail'
+  | 'gele'
+  | 'none';
+
 export type AccessoryType =
   | 'none'
   | 'crown'
@@ -320,6 +339,7 @@ export type ShirtPattern =
   | 'jalabiya_robe';
 
 export interface CharacterCustomization {
+  gender?: CharacterGender;
   skinTone: string;
   shirtColor: string;
   shirtPattern: ShirtPattern;

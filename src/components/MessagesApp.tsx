@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft,
   Send,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useDirectMessages } from '../hooks/useDirectMessages';
+import { getRegisteredStudents, getStudentAccounts } from '../lib/supabase';
 import type { RemotePlayer, GameLocation } from '../types/game';
 
 export interface PeerUser {
@@ -146,20 +147,160 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
     ];
   }, []);
 
-  // Merge live multiplayer peers
-  const allPeers: PeerUser[] = useMemo(() => {
-    const list = [...basePeers];
+  // Track active DM threads for the current student account.
+  // Newly created students do NOT appear in the user's inbox until searched or messaged.
+  const [activeChatMatrics, setActiveChatMatrics] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(`lu_active_chats_${stats.matricNo || 'default'}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    // Default contact: only Roommate Femi Adeleke so fresh student inbox is clean
+    return ['LU/24/0982'];
+  });
 
-    // Add remote players if not already listed
+  const recordActiveChat = useCallback(
+    (matricNo: string) => {
+      if (!matricNo) return;
+      setActiveChatMatrics((prev) => {
+        if (prev.includes(matricNo)) return prev;
+        const next = [matricNo, ...prev];
+        try {
+          localStorage.setItem(`lu_active_chats_${stats.matricNo || 'default'}`, JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    },
+    [stats.matricNo]
+  );
+
+  // Listen for incoming direct messages across tabs / network to add sender to active chats
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    try {
+      const bc = new BroadcastChannel('lu_direct_messages');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'NEW_DM' && event.data.payload) {
+          const msg = event.data.payload;
+          if (msg.recipient_matric === stats.matricNo && msg.sender_matric) {
+            recordActiveChat(msg.sender_matric);
+          }
+        }
+      };
+      return () => {
+        bc.close();
+      };
+    } catch {
+      // ignore
+    }
+  }, [stats.matricNo, recordActiveChat]);
+
+  // Load registered campus students & accounts for directory search
+  const [directoryStudents, setDirectoryStudents] = useState<PeerUser[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDirectory = async () => {
+      try {
+        const [students, accounts] = await Promise.all([
+          getRegisteredStudents(),
+          getStudentAccounts(),
+        ]);
+        if (!isMounted) return;
+
+        const map = new Map<string, PeerUser>();
+
+        // 1. Registered Student Accounts
+        accounts.forEach((acc) => {
+          if (acc.matricNo === stats.matricNo) return;
+          const userTag = acc.username.replace(/\s+/g, '_');
+          map.set(acc.matricNo, {
+            matricNo: acc.matricNo,
+            username: userTag,
+            displayName: acc.username,
+            avatar:
+              acc.gender === 'female'
+                ? acc.status === 'nepo'
+                  ? '👑'
+                  : '🎀'
+                : acc.status === 'nepo'
+                ? '👑'
+                : '🎒',
+            isOnline: false,
+            status: acc.status === 'nepo' ? 'nepo' : 'lapo',
+            department: acc.department,
+            level: acc.level,
+            lastMessageSnippet: `Say hi to @${userTag}`,
+            lastMessageTime: '',
+          });
+        });
+
+        // 2. Supabase Students table
+        students.forEach((stu) => {
+          if (stu.matricNo === stats.matricNo) return;
+          if (!map.has(stu.matricNo)) {
+            const userTag = (stu.username || stu.matricNo).replace(/\s+/g, '_');
+            map.set(stu.matricNo, {
+              matricNo: stu.matricNo,
+              username: userTag,
+              displayName: stu.username,
+              avatar: stu.status === 'nepo' ? '👑' : '🎒',
+              isOnline: stu.isOnline ?? false,
+              status: stu.status === 'nepo' ? 'nepo' : 'lapo',
+              department: stu.department,
+              level: stu.level,
+              lastMessageSnippet: `Say hi to @${userTag}`,
+              lastMessageTime: '',
+            });
+          }
+        });
+
+        setDirectoryStudents(Array.from(map.values()));
+      } catch (err) {
+        console.warn('Failed to load campus directory for messages', err);
+      }
+    };
+
+    fetchDirectory();
+    return () => {
+      isMounted = false;
+    };
+  }, [stats.matricNo]);
+
+  // Unified campus directory (base peers + registered students + live multiplayer)
+  const allDirectoryPeers: PeerUser[] = useMemo(() => {
+    const map = new Map<string, PeerUser>();
+
+    // 1. Base Seed Peers
+    basePeers.forEach((p) => {
+      if (p.matricNo !== stats.matricNo) {
+        map.set(p.matricNo, { ...p });
+      }
+    });
+
+    // 2. Registered Student Accounts & DB Students
+    directoryStudents.forEach((p) => {
+      if (p.matricNo !== stats.matricNo) {
+        map.set(p.matricNo, { ...p });
+      }
+    });
+
+    // 3. Online multiplayer players (mark active presence and location)
     allOnlinePlayers.forEach((player) => {
       if (player.matricNo === stats.matricNo) return;
-      const existing = list.find((p) => p.matricNo === player.matricNo);
+      const existing = map.get(player.matricNo);
       if (existing) {
         existing.isOnline = true;
         existing.location = player.location;
       } else {
         const usernameTag = player.username.replace(/\s+/g, '_');
-        list.unshift({
+        map.set(player.matricNo, {
           matricNo: player.matricNo,
           username: usernameTag,
           displayName: player.username,
@@ -175,20 +316,33 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
       }
     });
 
-    return list;
-  }, [basePeers, allOnlinePlayers, stats.matricNo]);
+    return Array.from(map.values());
+  }, [basePeers, directoryStudents, allOnlinePlayers, stats.matricNo]);
 
-  // Filtered peers based on search
-  const filteredPeers = useMemo(() => {
-    if (!searchQuery.trim()) return allPeers;
-    const query = searchQuery.toLowerCase().replace('@', '');
-    return allPeers.filter(
+  // Active Chats List: only shows users that the player has an active conversation with
+  const activeChatsList = useMemo(() => {
+    return allDirectoryPeers.filter((p) => activeChatMatrics.includes(p.matricNo));
+  }, [allDirectoryPeers, activeChatMatrics]);
+
+  // Directory Search Results (when searching for a peer by username, name, or matric number)
+  const directorySearchResults = useMemo(() => {
+    const query = searchQuery.toLowerCase().replace('@', '').trim();
+    if (!query) return [];
+    return allDirectoryPeers.filter(
       (p) =>
         p.username.toLowerCase().includes(query) ||
         p.displayName.toLowerCase().includes(query) ||
-        p.matricNo.toLowerCase().includes(query)
+        p.matricNo.toLowerCase().includes(query) ||
+        (p.department && p.department.toLowerCase().includes(query))
     );
-  }, [allPeers, searchQuery]);
+  }, [allDirectoryPeers, searchQuery]);
+
+  // Helper to open chat with peer from search and save to active chats
+  const handleStartChatWithPeer = (peer: PeerUser) => {
+    recordActiveChat(peer.matricNo);
+    setActivePeer(peer);
+    setSearchQuery('');
+  };
 
   // Auto-scroll chat history on new messages
   useEffect(() => {
@@ -200,6 +354,7 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
     const text = (textToSend || inputText).trim();
     if (!text || isSending || !activePeer) return;
 
+    recordActiveChat(activePeer.matricNo);
     setIsSending(true);
     setInputText('');
     setIsEmojiPickerOpen(false);
@@ -411,122 +566,218 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
                   </div>
                 )}
 
-                {/* Search / Start Input */}
+                {/* Search / Directory Lookup Input */}
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">✏️</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Message someone: @username"
+                    placeholder="Search campus: @username, name, or matric..."
                     className="w-full bg-white pl-8 pr-8 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 shadow-2xs"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
 
-                {/* Section "GROUPS" Card Banner */}
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-1">
-                    Groups
-                  </div>
-                  <div
-                    onClick={() => {
-                      if (onOpenCampusBuzz) onOpenCampusBuzz();
-                      else addToast('🎉 Opening LU Campus Buzz group broadcast!', 'info');
-                    }}
-                    className="p-3.5 rounded-2xl bg-gradient-to-tr from-purple-900 to-indigo-800 text-white border border-purple-700/50 shadow-md hover:shadow-lg transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">🍾</span>
-                        <h4 className="font-bold text-xs tracking-tight text-white group-hover:text-purple-200 transition-colors">
-                          LU Campus Buzz & Nightlife
-                        </h4>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-purple-500/40 text-purple-200 text-[9px] font-bold border border-purple-400/30">
-                        {Math.max(1, allOnlinePlayers.length + 1)} Online
+                {/* WHEN SEARCHING: Show Directory Search Results */}
+                {searchQuery.trim() !== '' ? (
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center justify-between">
+                      <span>Campus Directory Search</span>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                        {directorySearchResults.length} found
                       </span>
                     </div>
-                    <p className="text-[11px] text-purple-200/90 mt-1.5 leading-snug">
-                      Make a group with your friends - Add them by username, chat together and plan Quilox nights 🍾
-                    </p>
-                  </div>
-                </div>
 
-                {/* Section "CHATS" */}
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-1 flex items-center justify-between">
-                    <span>Chats</span>
-                    <span className="text-[9px] lowercase font-normal text-slate-400">
-                      {filteredPeers.length} conversations
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {filteredPeers.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 p-4">
-                        <p className="font-semibold text-xs text-slate-600">No student found</p>
-                        <p className="text-[10px] mt-0.5">Try searching another @username or matric number</p>
-                      </div>
-                    ) : (
-                      filteredPeers.map((peer) => (
-                        <button
-                          key={peer.matricNo}
-                          onClick={() => setActivePeer(peer)}
-                          className="w-full text-left p-3 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 hover:border-emerald-300 flex items-center gap-3 transition-all shadow-2xs group cursor-pointer"
-                        >
-                          {/* Avatar with Online Dot */}
-                          <div className="relative shrink-0">
-                            <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-xl shadow-2xs group-hover:scale-105 transition-transform">
-                              {peer.avatar}
-                            </div>
-                            {peer.isOnline && (
-                              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-2xs animate-pulse" />
-                            )}
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="font-bold text-slate-900 text-xs truncate">
-                                  @{peer.username}
-                                </span>
-                                <span
-                                  className={`px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0 ${
-                                    peer.status === 'nepo'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-emerald-100 text-emerald-800'
-                                  }`}
-                                >
-                                  {peer.status === 'nepo' ? '👑 Nepo' : '💼 Lapo'}
-                                </span>
+                    <div className="space-y-2">
+                      {directorySearchResults.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 p-4">
+                          <p className="font-semibold text-xs text-slate-700">No student found</p>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            No student matches &quot;{searchQuery}&quot;. Ask for their exact @username or matric number!
+                          </p>
+                        </div>
+                      ) : (
+                        directorySearchResults.map((peer) => (
+                          <div
+                            key={peer.matricNo}
+                            onClick={() => handleStartChatWithPeer(peer)}
+                            className="p-3 rounded-2xl bg-white hover:bg-emerald-50/40 border border-slate-200 hover:border-emerald-300 flex items-center justify-between gap-3 transition-all shadow-2xs group cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* Avatar */}
+                              <div className="relative shrink-0">
+                                <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl shadow-2xs group-hover:scale-105 transition-transform">
+                                  {peer.avatar}
+                                </div>
+                                {peer.isOnline && (
+                                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-2xs animate-pulse" />
+                                )}
                               </div>
-                              <span className="text-[9px] text-slate-400 font-medium shrink-0 ml-1">
-                                {peer.lastMessageTime || 'now'}
-                              </span>
+
+                              {/* Student Profile Info */}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-slate-900 text-xs truncate">
+                                    @{peer.username}
+                                  </span>
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0 ${
+                                      peer.status === 'nepo'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {peer.status === 'nepo' ? '👑 Nepo' : '💼 Lapo'}
+                                  </span>
+                                  {peer.isOnline && (
+                                    <span className="px-1.5 py-0.2 rounded-full text-[8px] font-bold bg-green-100 text-green-700">
+                                      Online
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] font-medium text-slate-700 truncate">
+                                  {peer.displayName}
+                                </p>
+                                <p className="text-[10px] text-slate-400 truncate">
+                                  {peer.department || 'Liids University'} · {peer.matricNo}
+                                </p>
+                              </div>
                             </div>
 
-                            <p className="text-[11px] text-slate-500 truncate group-hover:text-slate-700">
-                              {peer.lastMessageSnippet || `Say hi to @${peer.username}`}
+                            {/* Action Button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartChatWithPeer(peer);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shrink-0 shadow-xs transition-colors cursor-pointer"
+                            >
+                              Message
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* WHEN NOT SEARCHING: Normal Inbox with Groups & Active Chats */
+                  <>
+                    {/* Section "GROUPS" Card Banner */}
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-1">
+                        Groups
+                      </div>
+                      <div
+                        onClick={() => {
+                          if (onOpenCampusBuzz) onOpenCampusBuzz();
+                          else addToast('🎉 Opening LU Campus Buzz group broadcast!', 'info');
+                        }}
+                        className="p-3.5 rounded-2xl bg-gradient-to-tr from-purple-900 to-indigo-800 text-white border border-purple-700/50 shadow-md hover:shadow-lg transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">🍾</span>
+                            <h4 className="font-bold text-xs tracking-tight text-white group-hover:text-purple-200 transition-colors">
+                              LU Campus Buzz & Nightlife
+                            </h4>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-purple-500/40 text-purple-200 text-[9px] font-bold border border-purple-400/30">
+                            {Math.max(1, allOnlinePlayers.length + 1)} Online
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-purple-200/90 mt-1.5 leading-snug">
+                          Make a group with your friends - Add them by username, chat together and plan Quilox nights 🍾
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Section "CHATS" (Only shows active conversations) */}
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 px-1 flex items-center justify-between">
+                        <span>Chats</span>
+                        <span className="text-[9px] lowercase font-normal text-slate-400">
+                          {activeChatsList.length} conversations
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {activeChatsList.length === 0 ? (
+                          <div className="text-center py-8 text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200 p-4">
+                            <p className="font-semibold text-xs text-slate-600">No active chats yet</p>
+                            <p className="text-[10px] mt-0.5">
+                              Search for a student above by their @username or matric number to start messaging them!
                             </p>
                           </div>
+                        ) : (
+                          activeChatsList.map((peer) => (
+                            <button
+                              key={peer.matricNo}
+                              onClick={() => setActivePeer(peer)}
+                              className="w-full text-left p-3 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200/80 hover:border-emerald-300 flex items-center gap-3 transition-all shadow-2xs group cursor-pointer"
+                            >
+                              {/* Avatar with Online Dot */}
+                              <div className="relative shrink-0">
+                                <div className="w-11 h-11 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-xl shadow-2xs group-hover:scale-105 transition-transform">
+                                  {peer.avatar}
+                                </div>
+                                {peer.isOnline && (
+                                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-2xs animate-pulse" />
+                                )}
+                              </div>
 
-                          {peer.unread && (
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0" />
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="font-bold text-slate-900 text-xs truncate">
+                                      @{peer.username}
+                                    </span>
+                                    <span
+                                      className={`px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0 ${
+                                        peer.status === 'nepo'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-emerald-100 text-emerald-800'
+                                      }`}
+                                    >
+                                      {peer.status === 'nepo' ? '👑 Nepo' : '💼 Lapo'}
+                                    </span>
+                                  </div>
+                                  <span className="text-[9px] text-slate-400 font-medium shrink-0 ml-1">
+                                    {peer.lastMessageTime || 'now'}
+                                  </span>
+                                </div>
+
+                                <p className="text-[11px] text-slate-500 truncate group-hover:text-slate-700">
+                                  {peer.lastMessageSnippet || `Say hi to @${peer.username}`}
+                                </p>
+                              </div>
+
+                              {peer.unread && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 shrink-0" />
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Search Discovery Hint */}
+                      <div className="mt-3 p-2.5 rounded-xl bg-slate-100/70 border border-slate-200/70 text-slate-500 flex items-center gap-2">
+                        <span className="text-xs">🔒</span>
+                        <p className="text-[10px] leading-tight">
+                          Private campus directory: New users won&apos;t appear here until you search for them or they send you a message.
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               /* Updates Tab */

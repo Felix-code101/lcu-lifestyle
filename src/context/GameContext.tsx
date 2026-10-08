@@ -15,9 +15,11 @@ import type {
   BetSelection,
   BillboardAd,
   LionsHallEvent,
+  CharacterGender,
 } from '../types/game';
 import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS } from '../data/campusData';
 import { DEFAULT_PLAYER_CUSTOMIZATION } from '../data/npcData';
+import type { StudentAccount } from '../lib/supabase';
 
 export interface RoomTheme {
   name: string;
@@ -331,10 +333,15 @@ interface GameContextType {
     username: string;
     matricNo: string;
     department: string;
+    faculty?: string;
     status: SocioeconomicStatus;
+    gender?: CharacterGender;
+    email?: string;
     balance: number;
     mood: number;
   }) => void;
+  loginStudentProfile: (account: StudentAccount) => void;
+  signOutStudent: () => void;
   setSocioeconomicStatus: (status: SocioeconomicStatus, newBalance?: number) => void;
   takeLapoLoan: () => boolean;
   repayLapoLoan: () => boolean;
@@ -640,7 +647,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       username: string;
       matricNo: string;
       department: string;
+      faculty?: string;
       status: SocioeconomicStatus;
+      gender?: CharacterGender;
+      email?: string;
       balance: number;
       mood: number;
     }) => {
@@ -651,8 +661,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: profile.username,
           matricNo: profile.matricNo,
           department: profile.department,
+          faculty: profile.faculty,
           academicLevel: '100 Level (Fresher)',
           status: profile.status,
+          gender: profile.gender || 'male',
+          email: profile.email,
           balance: profile.balance,
           mood: profile.mood,
           cgpa: null,
@@ -675,6 +688,56 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     []
   );
+
+  const loginStudentProfile = useCallback(
+    (account: StudentAccount) => {
+      setStats((prev) => {
+        const next: PlayerStats = {
+          ...prev,
+          isRegistered: true,
+          username: account.username,
+          matricNo: account.matricNo,
+          department: account.department,
+          faculty: account.faculty,
+          academicLevel: account.level || '100 Level (Fresher)',
+          status: account.status || 'lapo',
+          gender: account.gender || 'male',
+          email: account.email,
+          balance: account.balance ?? 15000,
+          cgpa: null,
+          gpa: null,
+        };
+        try {
+          localStorage.setItem('lu_player_profile', JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+
+      if (account.customization) {
+        setPlayerCustomization(account.customization);
+      }
+      addToast(`🎓 Welcome back to Liids University, ${account.username}!`, 'success');
+    },
+    [addToast, setPlayerCustomization]
+  );
+
+  const signOutStudent = useCallback(() => {
+    setStats((prev) => {
+      const reset: PlayerStats = {
+        ...prev,
+        isRegistered: false,
+      };
+      try {
+        localStorage.removeItem('lu_player_profile');
+      } catch {
+        // ignore
+      }
+      return reset;
+    });
+    addToast('👋 Logged out of student portal. See you next lecture!', 'info');
+  }, [addToast]);
 
   const setSocioeconomicStatus = useCallback(
     (newStatus: SocioeconomicStatus, newBalance?: number) => {
@@ -2067,6 +2130,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdminOpen,
         setIsAdminOpen,
         registerStudentProfile,
+        loginStudentProfile,
+        signOutStudent,
         setSocioeconomicStatus,
         takeLapoLoan,
         repayLapoLoan,

@@ -1,6 +1,7 @@
 import type { CampusNPC, CharacterCustomization } from '../types/game';
 
 export const DEFAULT_PLAYER_CUSTOMIZATION: CharacterCustomization = {
+  gender: 'male',
   skinTone: '#6d4527', // Rich Melanin
   shirtColor: '#16a34a', // University Green
   shirtPattern: 'ankara', // African Wax Print
@@ -8,7 +9,19 @@ export const DEFAULT_PLAYER_CUSTOMIZATION: CharacterCustomization = {
   shoesColor: '#ffffff', // Clean White Sneakers
   hairStyle: 'fade', // High-Top Fade
   hairColor: '#18181b', // Natural Black
-  accessory: 'crown', // Floating Gold Crown (image_22.png)
+  accessory: 'crown', // Floating Gold Crown
+};
+
+export const DEFAULT_FEMALE_CUSTOMIZATION: CharacterCustomization = {
+  gender: 'female',
+  skinTone: '#6d4527', // Rich Melanin
+  shirtColor: '#f43f5e', // Coral Pink
+  shirtPattern: 'ankara', // African Wax Print
+  pantsColor: '#1e293b', // Midnight Navy
+  shoesColor: '#ffffff', // Clean White Sneakers
+  hairStyle: 'braids', // Box Braids
+  hairColor: '#18181b', // Natural Black
+  accessory: 'crown', // Floating Gold Crown
 };
 
 export const CAMPUS_NPCS: CampusNPC[] = [

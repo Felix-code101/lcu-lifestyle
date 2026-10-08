@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useGame } from '../context/GameContext';
 import { createCharacterModel, type CharacterModelInstance } from './CharacterModel';
-import type { CharacterCustomization, HairStyle, AccessoryType, ShirtPattern } from '../types/game';
+import type { CharacterCustomization, HairStyle, AccessoryType, ShirtPattern, CharacterGender } from '../types/game';
 import {
   X,
   Sparkles,
@@ -25,13 +25,25 @@ const SKIN_TONES = [
   { label: 'Warm Ivory', color: '#e0ad88' },
 ];
 
-const HAIR_STYLES: { id: HairStyle; label: string }[] = [
-  { id: 'fade', label: 'High Fade' },
-  { id: 'afro', label: 'Afro Puff' },
-  { id: 'dreads', label: 'Dreadlocks' },
-  { id: 'braids', label: 'Cornrows' },
-  { id: 'short', label: 'Buzz Cut' },
-  { id: 'none', label: 'Clean Shave' },
+const MALE_HAIR_STYLES: { id: HairStyle; label: string; icon: string }[] = [
+  { id: 'fade', label: 'High Fade', icon: '💈' },
+  { id: 'waves', label: '360 Waves', icon: '🌊' },
+  { id: 'afro', label: 'Afro Puff', icon: '✨' },
+  { id: 'dreads', label: 'Dreadlocks', icon: '🦁' },
+  { id: 'braids', label: 'Cornrows', icon: '🪮' },
+  { id: 'short', label: 'Buzz Cut', icon: '✂️' },
+  { id: 'none', label: 'Clean Shave', icon: '✨' },
+];
+
+const FEMALE_HAIR_STYLES: { id: HairStyle; label: string; icon: string }[] = [
+  { id: 'bob', label: 'Sleek Bob', icon: '💁‍♀️' },
+  { id: 'ponytail', label: 'High Ponytail', icon: '👱‍♀️' },
+  { id: 'gele', label: 'Traditional Gele', icon: '👑' },
+  { id: 'braids', label: 'Fulani Braids', icon: '🪮' },
+  { id: 'afro', label: 'Afro Puff', icon: '✨' },
+  { id: 'dreads', label: 'Sisterlocks', icon: '🦁' },
+  { id: 'short', label: 'Chic Pixie Cut', icon: '✂️' },
+  { id: 'none', label: 'Natural Clean', icon: '✨' },
 ];
 
 const HAIR_COLORS = [
@@ -91,13 +103,29 @@ const ACCESSORIES: { id: AccessoryType; label: string; icon: string; badge?: str
 type CustomTab = 'skin' | 'hair' | 'shirt' | 'pants' | 'shoes' | 'accessories';
 
 export const CustomizeCharacterModal: React.FC = () => {
-  const { playerCustomization, setPlayerCustomization, setIsWardrobeOpen, addToast } = useGame();
+  const { playerCustomization, setPlayerCustomization, setIsWardrobeOpen, addToast, stats } = useGame();
 
-  const [draftConfig, setDraftConfig] = useState<CharacterCustomization>({ ...playerCustomization });
+  const [draftConfig, setDraftConfig] = useState<CharacterCustomization>({
+    gender: playerCustomization.gender || stats.gender || 'male',
+    ...playerCustomization,
+  });
   const [activeTab, setActiveTab] = useState<CustomTab>('shirt');
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const characterInstanceRef = useRef<CharacterModelInstance | null>(null);
+
+  const currentGender = draftConfig.gender || 'male';
+  const currentHairStyles = currentGender === 'female' ? FEMALE_HAIR_STYLES : MALE_HAIR_STYLES;
+
+  const handleGenderSwitch = (newGender: CharacterGender) => {
+    const defaultHair = newGender === 'female' ? 'bob' : 'fade';
+    setDraftConfig((prev) => ({
+      ...prev,
+      gender: newGender,
+      hairStyle: defaultHair,
+    }));
+    addToast(`Switched avatar base to ${newGender === 'female' ? 'Female' : 'Male'} student!`, 'info');
+  };
 
   // 3D Turntable Preview Scene Setup
   useEffect(() => {
@@ -210,8 +238,9 @@ export const CustomizeCharacterModal: React.FC = () => {
 
   // Generate random stylish combination
   const handleRandomize = () => {
+    const activeHairList = (draftConfig.gender || 'male') === 'female' ? FEMALE_HAIR_STYLES : MALE_HAIR_STYLES;
     const randomSkin = SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)].color;
-    const randomHair = HAIR_STYLES[Math.floor(Math.random() * HAIR_STYLES.length)].id;
+    const randomHair = activeHairList[Math.floor(Math.random() * activeHairList.length)].id;
     const randomHairColor = HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)].color;
     const randomShirt = SHIRT_COLORS[Math.floor(Math.random() * SHIRT_COLORS.length)].color;
     const randomPattern = SHIRT_PATTERNS[Math.floor(Math.random() * SHIRT_PATTERNS.length)].id;
@@ -219,7 +248,8 @@ export const CustomizeCharacterModal: React.FC = () => {
     const randomShoes = SHOES_COLORS[Math.floor(Math.random() * SHOES_COLORS.length)].color;
     const randomAcc = ACCESSORIES[Math.floor(Math.random() * ACCESSORIES.length)].id;
 
-    setDraftConfig({
+    setDraftConfig((prev) => ({
+      ...prev,
       skinTone: randomSkin,
       hairStyle: randomHair,
       hairColor: randomHairColor,
@@ -228,7 +258,7 @@ export const CustomizeCharacterModal: React.FC = () => {
       pantsColor: randomPants,
       shoesColor: randomShoes,
       accessory: randomAcc,
-    });
+    }));
     addToast('Randomized outfit!', 'info');
   };
 
@@ -268,13 +298,41 @@ export const CustomizeCharacterModal: React.FC = () => {
         {/* Right Column: Customization Controls & Tabs */}
         <div className="w-full md:w-7/12 flex flex-col h-full overflow-hidden">
           {/* Header */}
-          <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md">
-              <User className="w-5 h-5" />
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md">
+                <User className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Student Wardrobe</h2>
+                <p className="text-xs text-slate-500">Customize your avatar appearance on campus</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-extrabold text-slate-900 leading-tight">Student Wardrobe</h2>
-              <p className="text-xs text-slate-500">Customize your avatar appearance on Liids University campus</p>
+
+            {/* Gender Toggle */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleGenderSwitch('male')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  (draftConfig.gender || 'male') === 'male'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                👨 Male
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGenderSwitch('female')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  draftConfig.gender === 'female'
+                    ? 'bg-pink-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                👩 Female
+              </button>
             </div>
           </div>
 
@@ -371,21 +429,27 @@ export const CustomizeCharacterModal: React.FC = () => {
             {activeTab === 'hair' && (
               <>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">
-                    Hair Style
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {HAIR_STYLES.map((h) => (
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                      Hair Style ({currentGender === 'female' ? 'Female' : 'Male'})
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {currentGender === 'female' ? '8 feminine styles' : '7 masculine styles'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {currentHairStyles.map((h) => (
                       <button
                         key={h.id}
                         onClick={() => setDraftConfig((prev) => ({ ...prev, hairStyle: h.id }))}
-                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                           draftConfig.hairStyle === h.id
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20'
+                            ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-500/20 shadow-xs'
                             : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'
                         }`}
                       >
-                        {h.label}
+                        <span className="text-base">{h.icon}</span>
+                        <span className="truncate">{h.label}</span>
                       </button>
                     ))}
                   </div>

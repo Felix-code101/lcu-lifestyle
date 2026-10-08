@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { RegisteredStudent, SocioeconomicStatus } from '../types/game';
+import type { RegisteredStudent, SocioeconomicStatus, CharacterCustomization, CharacterGender } from '../types/game';
 
 // Environment variables for Supabase (optional: works seamlessly in offline/fallback mode if absent)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://avnsouavfrhwjcgzjmiv.supabase.co';
@@ -346,3 +346,99 @@ export function subscribeToMultiplayer(
     }
   };
 }
+
+// ============================================================================
+// STUDENT AUTHENTICATION & CREDENTIALS STORAGE
+// ============================================================================
+export interface StudentAccount {
+  username: string;
+  matricNo: string;
+  password: string;
+  email?: string;
+  gender: CharacterGender;
+  department: string;
+  faculty: string;
+  level: string;
+  status: SocioeconomicStatus;
+  balance: number;
+  customization?: CharacterCustomization;
+  createdAt: string;
+}
+
+const LOCAL_STORAGE_ACCOUNTS_KEY = 'lu_student_accounts_db';
+
+// Retrieve all student accounts
+export async function getStudentAccounts(): Promise<StudentAccount[]> {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_ACCOUNTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Error reading student accounts:', e);
+  }
+  return [];
+}
+
+// Save or update student account
+export async function saveStudentAccount(account: StudentAccount): Promise<void> {
+  try {
+    const existing = await getStudentAccounts();
+    const index = existing.findIndex(
+      (a) =>
+        a.username.toLowerCase() === account.username.toLowerCase() ||
+        a.matricNo.toLowerCase() === account.matricNo.toLowerCase() ||
+        (account.email && a.email && a.email.toLowerCase() === account.email.toLowerCase())
+    );
+
+    let updated: StudentAccount[];
+    if (index >= 0) {
+      updated = [...existing];
+      updated[index] = { ...updated[index], ...account };
+    } else {
+      updated = [account, ...existing];
+    }
+
+    localStorage.setItem(LOCAL_STORAGE_ACCOUNTS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Error saving student account:', e);
+  }
+}
+
+// Authenticate student by username, matricNo, or optional email
+export async function authenticateStudent(
+  identifier: string,
+  password: string
+): Promise<StudentAccount | null> {
+  const cleanId = identifier.trim().toLowerCase();
+  const cleanPass = password.trim();
+
+  const accounts = await getStudentAccounts();
+  const match = accounts.find((a) => {
+    const matchUser = a.username.toLowerCase() === cleanId;
+    const matchMatric = a.matricNo.toLowerCase() === cleanId;
+    const matchEmail = a.email ? a.email.toLowerCase() === cleanId : false;
+    return (matchUser || matchMatric || matchEmail) && a.password === cleanPass;
+  });
+
+  return match || null;
+}
+
+// Check if username or email already exists in registry
+export async function checkStudentAccountExists(
+  username: string,
+  email?: string
+): Promise<{ usernameExists: boolean; emailExists: boolean }> {
+  const accounts = await getStudentAccounts();
+  const cleanUser = username.trim().toLowerCase();
+  const cleanEmail = email ? email.trim().toLowerCase() : '';
+
+  const usernameExists = accounts.some((a) => a.username.toLowerCase() === cleanUser);
+  const emailExists = Boolean(
+    cleanEmail && accounts.some((a) => a.email && a.email.toLowerCase() === cleanEmail)
+  );
+
+  return { usernameExists, emailExists };
+}
+

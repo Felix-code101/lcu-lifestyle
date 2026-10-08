@@ -337,12 +337,16 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
       {/* Dimmed backdrop allowing click-outside to close */}
       <div
         onClick={() => setIsPhoneOpen(false)}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
         className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[2px] transition-opacity"
       />
 
       {/* Modern Smartphone Frame (Clean Silver / Matte White Theme) */}
       <div
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
         className="fixed bottom-20 sm:bottom-24 right-3 sm:right-8 z-50 w-[94vw] sm:w-[350px] max-w-[360px] h-[640px] max-h-[82vh] rounded-[46px] bg-slate-100 border-[9px] border-slate-300 shadow-2xl shadow-slate-900/25 ring-1 ring-slate-400/40 flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-300 pointer-events-auto"
       >
         {/* Dynamic Island / Top Notch (Sleek Graphite/Silver Accent) */}

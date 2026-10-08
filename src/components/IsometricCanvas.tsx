@@ -43,7 +43,11 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     isTransitioning,
     playerCustomization,
     setActiveDialogueNPC,
+    activeDialogueNPC,
     setIsWardrobeOpen,
+    isWardrobeOpen,
+    activeTab,
+    isPhoneOpen,
   } = useGame();
 
   const [hoveredTile, setHoveredTile] = useState<{ x: number; z: number } | null>(null);
@@ -51,6 +55,23 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
   const [activeInteractItem, setActiveInteractItem] = useState<RoomItem | null>(null);
   const [screenBadges, setScreenBadges] = useState<ScreenBadge[]>([]);
   const [selectedRemoteStudent, setSelectedRemoteStudent] = useState<RemotePlayer | null>(null);
+  const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  // Reset selected tile, placement coordinates, and active interaction state
+  const handleClosePlacement = useCallback(() => {
+    setActiveInteractTile(null);
+    setActiveInteractItem(null);
+    setHoveredTile(null);
+    setSelectedPlacingItem(null);
+    if (tileHighlightRef.current) {
+      tileHighlightRef.current.visible = false;
+    }
+  }, [setSelectedPlacingItem]);
+
+  // Auto-Dismiss Modals & Placement Tools on Navigation Tab or Location Change
+  useEffect(() => {
+    handleClosePlacement();
+  }, [activeTab, currentLocation, isPhoneOpen, handleClosePlacement]);
 
   // Three.js Scene References
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -666,69 +687,133 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     [roomItems]
   );
 
-  // Click Handler: Tile Interaction, Item Selection, or NPC Conversation
-  const handlePointerDown = useCallback(
+  // Capture pointer down position to differentiate clean taps from camera drags / pans
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    // Only capture if target is container or canvas
+    if (e.target !== containerRef.current && (e.target as HTMLElement)?.tagName !== 'CANVAS') return;
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+  }, []);
+
+  // Handle tap / pointer up: only trigger tile interaction on a clean, stationary tap on canvas
+  const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
+      if (!pointerDownPosRef.current) return;
 
-      if (!hoveredTile) return;
+      const dx = e.clientX - pointerDownPosRef.current.x;
+      const dy = e.clientY - pointerDownPosRef.current.y;
+      const elapsed = Date.now() - pointerDownPosRef.current.time;
+      pointerDownPosRef.current = null;
 
-      // Check if clicking near room NPC (Roommate Femi at [3, 0, -2] or location NPC)
-      const currentNPC = currentNPCRef.current;
-      if (currentNPC) {
-        const isHostelRoom = currentLocation === 'home_hostel' || currentNPC.id === 'npc_femi';
-        const targetNPCX = isHostelRoom ? 3.0 : currentNPC.position[0];
-        const targetNPCZ = isHostelRoom ? -2.0 : currentNPC.position[2];
-        if (
-          Math.abs(targetNPCX - hoveredTile.x) < 1.0 &&
-          Math.abs(targetNPCZ - hoveredTile.z) < 1.0
-        ) {
-          setActiveDialogueNPC(currentNPC);
-          return;
-        }
-      }
+      // If user dragged to rotate / pan camera (> 8px) or held (> 500ms), do not open placement
+      if (Math.hypot(dx, dy) > 8 || elapsed > 500) return;
 
-      // Check if clicking near player avatar at [0, 0, 0] to open wardrobe
+      // If clicked target is not the container or canvas element, ignore
+      if (e.target !== containerRef.current && (e.target as HTMLElement)?.tagName !== 'CANVAS') return;
+
+      // If any modal, drawer, or phone is active, do not open placement
       if (
-        Math.abs(0 - hoveredTile.x) < 0.8 &&
-        Math.abs(0 - hoveredTile.z) < 0.8
+        activeInteractTile !== null ||
+        selectedRemoteStudent !== null ||
+        isWardrobeOpen ||
+        isPhoneOpen ||
+        activeDialogueNPC !== null ||
+        activeTab !== null
       ) {
-        setIsWardrobeOpen(true);
         return;
       }
 
-      // Check if quick place mode is active
-      if (selectedPlacingItem) {
-        const occupied = roomItems.some(
-          (i) => Math.abs(i.x - hoveredTile.x) < 0.7 && Math.abs(i.z - hoveredTile.z) < 0.7
-        );
-        if (occupied) return;
+      if (!containerRef.current || !cameraRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
 
-        const success = spendBalance(selectedPlacingItem.price);
-        if (success) {
-          addItemToRoom({
-            name: selectedPlacingItem.name,
-            type: selectedPlacingItem.type,
-            x: hoveredTile.x,
-            z: hoveredTile.z,
-            rotation: 0,
-            color: selectedPlacingItem.color,
-          });
-          setSelectedPlacingItem(null);
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, cameraRef.current);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const targetPoint = new THREE.Vector3();
+
+      if (raycaster.ray.intersectPlane(groundPlane, targetPoint)) {
+        if (targetPoint.x >= -9 && targetPoint.x <= 9 && targetPoint.z >= -9 && targetPoint.z <= 9) {
+          const gridX = Math.floor(targetPoint.x) + 0.5;
+          const gridZ = Math.floor(targetPoint.z) + 0.5;
+
+          // Check if clicking near room NPC (Roommate Femi at [3, 0, -2] or location NPC)
+          const currentNPC = currentNPCRef.current;
+          if (currentNPC) {
+            const isHostelRoom = currentLocation === 'home_hostel' || currentNPC.id === 'npc_femi';
+            const targetNPCX = isHostelRoom ? 3.0 : currentNPC.position[0];
+            const targetNPCZ = isHostelRoom ? -2.0 : currentNPC.position[2];
+            if (
+              Math.abs(targetNPCX - gridX) < 1.0 &&
+              Math.abs(targetNPCZ - gridZ) < 1.0
+            ) {
+              setActiveDialogueNPC(currentNPC);
+              return;
+            }
+          }
+
+          // Check if clicking near player avatar at [0, 0, 0] to open wardrobe
+          if (
+            Math.abs(0 - gridX) < 0.8 &&
+            Math.abs(0 - gridZ) < 0.8
+          ) {
+            setIsWardrobeOpen(true);
+            return;
+          }
+
+          // Check if quick place mode is active
+          if (selectedPlacingItem) {
+            const occupied = roomItems.some(
+              (i) => Math.abs(i.x - gridX) < 0.7 && Math.abs(i.z - gridZ) < 0.7
+            );
+            if (occupied) return;
+
+            const success = spendBalance(selectedPlacingItem.price);
+            if (success) {
+              addItemToRoom({
+                name: selectedPlacingItem.name,
+                type: selectedPlacingItem.type,
+                x: gridX,
+                z: gridZ,
+                rotation: 0,
+                color: selectedPlacingItem.color,
+              });
+              setSelectedPlacingItem(null);
+            }
+            return;
+          }
+
+          // Open Tile Interaction / Placement Modal
+          const clickedItem =
+            roomItems.find(
+              (i) => Math.abs(i.x - gridX) < 0.7 && Math.abs(i.z - gridZ) < 0.7
+            ) || null;
+
+          setActiveInteractTile({ x: gridX, z: gridZ });
+          setActiveInteractItem(clickedItem);
         }
-        return;
       }
-
-      // Check if clicking on placed object or empty tile
-      const clickedItem =
-        roomItems.find(
-          (i) => Math.abs(i.x - hoveredTile.x) < 0.7 && Math.abs(i.z - hoveredTile.z) < 0.7
-        ) || null;
-
-      setActiveInteractTile({ x: hoveredTile.x, z: hoveredTile.z });
-      setActiveInteractItem(clickedItem);
     },
-    [hoveredTile, selectedPlacingItem, roomItems, spendBalance, addItemToRoom, setSelectedPlacingItem, setActiveDialogueNPC]
+    [
+      activeInteractTile,
+      selectedRemoteStudent,
+      isWardrobeOpen,
+      isPhoneOpen,
+      activeDialogueNPC,
+      activeTab,
+      currentLocation,
+      selectedPlacingItem,
+      roomItems,
+      spendBalance,
+      addItemToRoom,
+      setSelectedPlacingItem,
+      setActiveDialogueNPC,
+      setIsWardrobeOpen,
+    ]
   );
 
   const currentLocData = CAMPUS_LOCATIONS.find((l) => l.id === currentLocation);
@@ -738,6 +823,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       className="relative w-full h-full cursor-pointer select-none"
     >
       {/* Travel Transition Curtain */}
@@ -824,7 +910,12 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
 
       {/* Placement Mode Active Indicator Banner */}
       {selectedPlacingItem && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-5 py-2.5 rounded-full bg-slate-950/90 backdrop-blur-md border border-emerald-500/50 shadow-2xl text-emerald-200 text-sm animate-pulse">
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-20 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-5 py-2.5 rounded-full bg-slate-950/90 backdrop-blur-md border border-emerald-500/50 shadow-2xl text-emerald-200 text-sm animate-pulse pointer-events-auto"
+        >
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
           <span>
             Placing <strong>{selectedPlacingItem.name}</strong> • Click any valid floor tile
@@ -846,10 +937,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
         <TileInteractModal
           tileCoord={activeInteractTile}
           selectedItem={activeInteractItem}
-          onClose={() => {
-            setActiveInteractTile(null);
-            setActiveInteractItem(null);
-          }}
+          onClose={handleClosePlacement}
           onRotateItem={(id) => {
             rotateItemInRoom(id);
           }}

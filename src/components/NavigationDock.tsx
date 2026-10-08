@@ -33,6 +33,9 @@ export const NavigationDock: React.FC = () => {
     navigateToLocation,
     isPhoneOpen,
     setIsPhoneOpen,
+    setSelectedPlacingItem,
+    setActiveDialogueNPC,
+    setIsWardrobeOpen,
   } = useGame();
 
   const unclaimedQuests = quests.filter((q) => !q.completed && q.progress >= q.maxProgress).length;
@@ -82,6 +85,11 @@ export const NavigationDock: React.FC = () => {
   ];
 
   const handleTabClick = (tab: TabConfig) => {
+    // Reset any active sub-modals or placement tools when changing main tabs
+    setSelectedPlacingItem(null);
+    setActiveDialogueNPC(null);
+    setIsWardrobeOpen(false);
+
     if (tab.id === 'home') {
       navigateToLocation('home_hostel');
       setActiveTab(null);
@@ -115,11 +123,15 @@ export const NavigationDock: React.FC = () => {
       {activeTab && activeTab !== 'map' && (
         <div
           onClick={closePanel}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 pb-24 sm:pb-6 bg-slate-900/40 backdrop-blur-xs pointer-events-auto animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg p-3 sm:p-6 rounded-3xl bg-white/98 backdrop-blur-2xl border border-slate-200 shadow-2xl max-h-[85vh] flex flex-col transition-all overflow-y-auto"
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="w-full max-w-lg p-3 sm:p-6 rounded-3xl bg-white/98 backdrop-blur-2xl border border-slate-200 shadow-2xl max-h-[85vh] flex flex-col transition-all overflow-y-auto pointer-events-auto"
           >
             {activeTab === 'build' && <BuildPanel onClose={closePanel} />}
             {activeTab === 'shop' && <ShopPanel onClose={closePanel} />}
@@ -131,8 +143,17 @@ export const NavigationDock: React.FC = () => {
       )}
 
       {/* Fixed Bottom Navigation Dock (Fixed, bottom: 0, z-index: 40) */}
-      <nav className="fixed bottom-0 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 sm:bottom-3 z-40 sm:w-auto pointer-events-none flex justify-center">
-        <div className="w-full sm:w-auto flex items-center justify-around sm:justify-center gap-0.5 sm:gap-1.5 p-1 sm:p-2 bg-white/95 backdrop-blur-xl border-t sm:border border-slate-200/90 sm:rounded-3xl shadow-2xl pointer-events-auto">
+      <nav
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        className="fixed bottom-0 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 sm:bottom-3 z-40 sm:w-auto pointer-events-none flex justify-center"
+      >
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="w-full sm:w-auto flex items-center justify-around sm:justify-center gap-0.5 sm:gap-1.5 p-1 sm:p-2 bg-white/95 backdrop-blur-xl border-t sm:border border-slate-200/90 sm:rounded-3xl shadow-2xl pointer-events-auto"
+        >
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive =

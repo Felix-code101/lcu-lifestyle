@@ -583,6 +583,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isMusicRequestModalOpen, setIsMusicRequestModalOpen] = useState<boolean>(false);
   const [activeTrackTitle, setActiveTrackTitle] = useState<string | null>(null);
 
+  // Auto-Dismiss Modals & Placement Tools on Navigation Tab Change
+  useEffect(() => {
+    setSelectedPlacingItem(null);
+    setActiveDialogueNPC(null);
+    setIsWardrobeOpen(false);
+    setIsSermonModalOpen(false);
+    setIsElectionsModalOpen(false);
+    setIsExamModalOpen(false);
+    setIsTribunalModalOpen(false);
+    setIsHustleModalOpen(false);
+    setIsPenaltyModalOpen(false);
+    setIsBettingModalOpen(false);
+    setIsBillboardModalOpen(false);
+    setIsLionsEventModalOpen(false);
+    setIsMusicRequestModalOpen(false);
+  }, [activeTab]);
+
   // Persistent room items per location
   const [locationItemsMap, setLocationItemsMap] = useState<Record<GameLocation, RoomItem[]>>({
     ...DEFAULT_LOCATION_ITEMS,
@@ -820,6 +837,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       supabase?.removeChannel(channel);
     };
   }, [stats.matricNo, addToast]);
+
+  // Auto-Dismiss Modals on Bottom Navigation Tab Change
+  useEffect(() => {
+    // Reset any active sub-modals or placement tools when changing main tabs
+    setSelectedPlacingItem(null);
+    setActiveDialogueNPC(null);
+    setIsWardrobeOpen(false);
+  }, [activeTab]);
 
   const takeLapoLoan = useCallback((): boolean => {
     if (stats.status !== 'lapo') {

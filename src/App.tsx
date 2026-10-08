@@ -72,7 +72,12 @@ function GameRoot() {
     <div className="relative w-screen h-screen overflow-hidden bg-white font-sans select-none">
       {/* Real-time Campus Announcement Marquee Alert Banner */}
       {activeCampusAnnouncement && (
-        <div className="fixed top-24 sm:top-28 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-3 sm:px-4 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed top-24 sm:top-28 left-1/2 -translate-x-1/2 z-40 w-full max-w-2xl px-3 sm:px-4 animate-in slide-in-from-top-4 duration-300 pointer-events-auto"
+        >
           <div className="p-3 rounded-2xl bg-white/95 border-2 border-rose-300 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 text-slate-900">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">

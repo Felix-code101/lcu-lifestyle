@@ -362,7 +362,11 @@ export const LocationActivityBar: React.FC = () => {
       {/* ========================================================================= */}
       {/* 1. DESKTOP VIEW: Cleanly docked card on Top-Right (z-20, no collision)   */}
       {/* ========================================================================= */}
-      <div className="hidden sm:block fixed top-24 right-4 z-20 pointer-events-auto w-80 lg:w-96 animate-in slide-in-from-right duration-200">
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        className="hidden sm:block fixed top-24 right-4 z-20 pointer-events-auto w-80 lg:w-96 animate-in slide-in-from-right duration-200"
+      >
         <div className="rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-xl overflow-hidden">
           {renderCardContent(false)}
         </div>
@@ -374,10 +378,14 @@ export const LocationActivityBar: React.FC = () => {
       {isExpanded ? (
         <div
           onClick={() => setIsExpanded(false)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3 pb-24 sm:hidden pointer-events-auto animate-in fade-in duration-200"
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-3xl bg-white/98 backdrop-blur-xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[78vh] animate-in zoom-in-95 duration-150"
           >
             {renderCardContent(true)}
@@ -385,9 +393,15 @@ export const LocationActivityBar: React.FC = () => {
         </div>
       ) : (
         /* Minimized Mobile Action Pill Docked above Bottom Nav */
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-30 sm:hidden pointer-events-auto">
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-30 sm:hidden pointer-events-auto"
+        >
           <button
             onClick={() => setIsExpanded(true)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             className="px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-xs font-bold text-slate-800 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
           >
             <MapPin className="w-3.5 h-3.5 text-emerald-600" />

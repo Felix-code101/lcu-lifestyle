@@ -263,8 +263,22 @@ export const CustomizeCharacterModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl h-[90vh] max-h-[720px] rounded-3xl bg-white border border-slate-200 shadow-2xl flex flex-col md:flex-row overflow-hidden text-slate-800 animate-in zoom-in-95 duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          setIsWardrobeOpen(false);
+        }
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        className="relative w-full max-w-4xl h-[90vh] max-h-[720px] rounded-3xl bg-white border border-slate-200 shadow-2xl flex flex-col md:flex-row overflow-hidden text-slate-800 animate-in zoom-in-95 duration-200"
+      >
         {/* Close Button */}
         <button
           onClick={() => setIsWardrobeOpen(false)}

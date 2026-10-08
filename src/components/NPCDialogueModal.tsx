@@ -63,8 +63,22 @@ export const NPCDialogueModal: React.FC<NPCDialogueModalProps> = ({ npc, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-auto flex items-end justify-center pb-6 sm:pb-8 px-4 bg-slate-900/30 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-white/95 backdrop-blur-2xl border border-slate-200 shadow-2xl p-5 sm:p-6 text-slate-800 animate-in slide-from-bottom-6 duration-200">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-50 pointer-events-auto flex items-end justify-center pb-6 sm:pb-8 px-4 bg-slate-900/30 backdrop-blur-xs animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl rounded-3xl bg-white/95 backdrop-blur-2xl border border-slate-200 shadow-2xl p-5 sm:p-6 text-slate-800 animate-in slide-from-bottom-6 duration-200"
+      >
         {/* Close Button */}
         <button
           onClick={onClose}

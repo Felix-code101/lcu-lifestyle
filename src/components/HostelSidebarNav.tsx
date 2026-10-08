@@ -101,7 +101,12 @@ export const HostelSidebarNav: React.FC = () => {
       }`}
     >
       {/* Floating Panel Container */}
-      <div className="relative rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-2xl overflow-hidden text-slate-800 pointer-events-auto flex flex-col max-h-[calc(100vh-11rem)] sm:max-h-[calc(100vh-8rem)]">
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        className="relative rounded-2xl bg-white/95 backdrop-blur-xl border border-slate-200/90 shadow-2xl overflow-hidden text-slate-800 pointer-events-auto flex flex-col max-h-[calc(100vh-11rem)] sm:max-h-[calc(100vh-8rem)]"
+      >
         {/* Toggle Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}

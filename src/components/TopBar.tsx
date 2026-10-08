@@ -68,9 +68,14 @@ export const TopBar: React.FC = () => {
       {/* 1. TOP BAR (Fixed, top: 0, z-index: 30) - Student Header & Cash Pill     */}
       {/* ========================================================================= */}
       <header className="fixed top-0 left-0 right-0 z-30 pointer-events-none bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-xs">
-        <div className="w-full px-2.5 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2">
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full px-2.5 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2 pointer-events-auto"
+        >
           {/* Left: Student Identity Pill (Level, Matric No, Status) */}
-          <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {/* Student ID Avatar & Academic Level */}
             <div className="flex items-center gap-2 px-2 sm:px-2.5 py-1 rounded-xl sm:rounded-2xl bg-white border border-slate-200/90 shadow-xs shrink-0">
               <div className="relative">
@@ -196,7 +201,12 @@ export const TopBar: React.FC = () => {
       {/* ========================================================================= */}
       {showMobileStats && (
         <div className="fixed top-[46px] sm:top-[52px] left-0 right-0 z-20 pointer-events-none transition-all duration-200">
-          <div className="w-full pointer-events-auto flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1 sm:py-1.5 overflow-x-auto no-scrollbar bg-slate-50/95 sm:bg-white/85 backdrop-blur-md border-b border-slate-200/60 shadow-xs text-slate-800">
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full pointer-events-auto flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-1 sm:py-1.5 overflow-x-auto no-scrollbar bg-slate-50/95 sm:bg-white/85 backdrop-blur-md border-b border-slate-200/60 shadow-xs text-slate-800"
+          >
             {/* Energy / Stamina Stat Pill */}
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-2xs shrink-0">
               <div className="w-5 h-5 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-600 border border-emerald-200 shrink-0">

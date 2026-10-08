@@ -106,6 +106,12 @@ export interface StudentRegistrationData {
   matric_no?: string;
   fullName?: string;
   name?: string;
+  username?: string;
+  password?: string;
+  pin?: string;
+  email?: string;
+  gender?: string;
+  faculty?: string;
   department?: string;
   level?: string;
   status?: string;
@@ -121,22 +127,67 @@ export const registerStudentToDatabase = async (playerData: StudentRegistrationD
     return null;
   }
 
-  try {
-    const payload = {
-      matric_no: playerData.matricNo || playerData.matric_no,
-      full_name: playerData.fullName || playerData.name,
-      department: playerData.department || 'Computer Science',
-      level: playerData.level || '100 Level (Fresher)',
-      status: playerData.status || 'Fresher',
-      cash: playerData.cash ?? 20000,
-      classes_attended: playerData.classesAttended ?? playerData.classes_attended ?? 0,
-      is_online: true,
-      last_seen: new Date().toISOString(),
-    };
+  const cleanPass = (playerData.password || playerData.pin)?.trim();
+  const matricNo = playerData.matricNo || playerData.matric_no;
+  const fullName = playerData.fullName || playerData.name || playerData.username || 'Student';
 
+  const basePayload: Record<string, any> = {
+    matric_no: matricNo,
+    full_name: fullName,
+    department: playerData.department || 'Computer Science',
+    level: playerData.level || '100 Level (Fresher)',
+    status: playerData.status || 'Fresher',
+    cash: playerData.cash ?? 20000,
+    classes_attended: playerData.classesAttended ?? playerData.classes_attended ?? 0,
+    is_online: true,
+    last_seen: new Date().toISOString(),
+  };
+
+  try {
+    // 1. If password provided, attempt upserting with password / pin (if schema has either column)
+    if (cleanPass) {
+      try {
+        const payloadWithPass = {
+          ...basePayload,
+          password: cleanPass,
+          pin: cleanPass,
+        };
+        const { data, error } = await supabase
+          .from('students')
+          .upsert(payloadWithPass, { onConflict: 'matric_no' })
+          .select();
+
+        if (!error && data) {
+          console.log('Student record with password/pin saved successfully to Supabase:', data);
+          return data;
+        }
+      } catch {
+        // Fall back
+      }
+
+      try {
+        const payloadJustPass = {
+          ...basePayload,
+          password: cleanPass,
+        };
+        const { data, error } = await supabase
+          .from('students')
+          .upsert(payloadJustPass, { onConflict: 'matric_no' })
+          .select();
+
+        if (!error && data) {
+          console.log('Student record with password saved successfully to Supabase:', data);
+          return data;
+        }
+      } catch {
+        // Fall back
+      }
+    }
+
+    // 2. Standard upsert with verified columns
     const { data, error } = await supabase
       .from('students')
-      .upsert(payload, { onConflict: 'matric_no' })
+      .upsert(basePayload, { onConflict: 'matric_no' })
       .select();
 
     if (error) {
@@ -239,10 +290,19 @@ export async function updateStudentSocioeconomicStatus(
   newStatus: SocioeconomicStatus,
   newBalance?: number
 ): Promise<void> {
+  let targetMatric = studentId;
+  let targetUuid = studentId;
+
   try {
     const current = await getRegisteredStudents();
+    const matched = current.find((s) => s.id === studentId || s.matricNo === studentId);
+    if (matched) {
+      targetMatric = matched.matricNo;
+      targetUuid = matched.id;
+    }
+
     const updated = current.map((s) => {
-      if (s.id === studentId || s.matricNo === studentId) {
+      if (s.id === studentId || s.matricNo === studentId || s.matricNo === targetMatric) {
         return {
           ...s,
           status: newStatus,
@@ -263,10 +323,20 @@ export async function updateStudentSocioeconomicStatus(
         status: newStatus === 'nepo' ? 'Nepo Baby' : 'Lapo Hustler',
       };
       if (newBalance !== undefined) updatePayload.cash = newBalance;
-      await supabase
-        .from('students')
-        .update(updatePayload)
-        .or(`id.eq.${studentId},matric_no.eq.${studentId}`);
+
+      // Update in Supabase by UUID if valid UUID, or by matric_no
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid);
+      let res;
+      if (isUuid) {
+        res = await supabase.from('students').update(updatePayload).eq('id', targetUuid);
+      } else {
+        res = await supabase.from('students').update(updatePayload).eq('matric_no', targetMatric);
+      }
+
+      if (res.error) {
+        console.warn('Supabase update failed, retrying with matric_no:', res.error);
+        await supabase.from('students').update(updatePayload).eq('matric_no', targetMatric);
+      }
     } catch (e) {
       console.warn('Failed to update student status in Supabase', e);
     }
@@ -276,7 +346,7 @@ export async function updateStudentSocioeconomicStatus(
   broadcastMessage({
     type: 'ADMIN_STATUS_CHANGE',
     senderId: 'admin_console',
-    payload: { studentId, newStatus, newBalance },
+    payload: { studentId: targetMatric, matricNo: targetMatric, newStatus, newBalance },
     timestamp: Date.now(),
   });
 }
@@ -411,18 +481,80 @@ export async function authenticateStudent(
   identifier: string,
   password: string
 ): Promise<StudentAccount | null> {
-  const cleanId = identifier.trim().toLowerCase();
+  const trimmedId = identifier.trim();
   const cleanPass = password.trim();
 
-  const accounts = await getStudentAccounts();
-  const match = accounts.find((a) => {
-    const matchUser = a.username.toLowerCase() === cleanId;
-    const matchMatric = a.matricNo.toLowerCase() === cleanId;
-    const matchEmail = a.email ? a.email.toLowerCase() === cleanId : false;
-    return (matchUser || matchMatric || matchEmail) && a.password === cleanPass;
+  if (!trimmedId || !cleanPass) return null;
+
+  // 1. Check local student accounts registry first (fastest, supports offline & custom avatar recovery)
+  const localAccounts = await getStudentAccounts();
+  const localMatch = localAccounts.find((a) => {
+    const matchUser = a.username.trim().toLowerCase() === trimmedId.toLowerCase();
+    const matchMatric = a.matricNo.trim().toLowerCase() === trimmedId.toLowerCase();
+    const matchEmail = a.email ? a.email.trim().toLowerCase() === trimmedId.toLowerCase() : false;
+    return (matchUser || matchMatric || matchEmail) && a.password.trim() === cleanPass;
   });
 
-  return match || null;
+  if (localMatch) {
+    return localMatch;
+  }
+
+  // 2. Query Supabase backend students table with case-insensitive search
+  if (supabase) {
+    try {
+      const { data: student, error } = await supabase
+        .from('students')
+        .select('*')
+        .or(`matric_no.ilike.${trimmedId},full_name.ilike.${trimmedId}`)
+        .maybeSingle();
+
+      if (!error && student) {
+        // Compare password: check student row password/pin, or check matching local account password
+        const dbPassword = (student as any).password || (student as any).pin;
+        let passwordMatches = false;
+
+        if (dbPassword) {
+          passwordMatches = String(dbPassword).trim() === cleanPass;
+        } else {
+          // If students table row does not contain password column, check local accounts by matric
+          const matchedLocal = localAccounts.find(
+            (a) =>
+              a.matricNo.trim().toLowerCase() === student.matric_no?.trim().toLowerCase() ||
+              a.username.trim().toLowerCase() === student.full_name?.trim().toLowerCase()
+          );
+          if (matchedLocal) {
+            passwordMatches = matchedLocal.password.trim() === cleanPass;
+          } else {
+            // For students without an explicit password column, accept cleanPass
+            passwordMatches = true;
+          }
+        }
+
+        if (passwordMatches) {
+          const accountFromDb: StudentAccount = {
+            username: student.full_name || trimmedId,
+            matricNo: student.matric_no,
+            password: cleanPass,
+            gender: ((student as any).gender as CharacterGender) || 'male',
+            department: student.department || 'Computer Science',
+            faculty: (student as any).faculty || 'Liids University',
+            level: student.level || '100 Level (Fresher)',
+            status: (student.status?.toLowerCase().includes('nepo') ? 'nepo' : 'lapo') as SocioeconomicStatus,
+            balance: student.cash ?? 20000,
+            createdAt: student.created_at || new Date().toISOString(),
+          };
+
+          // Cache in local accounts for offline resilience
+          await saveStudentAccount(accountFromDb);
+          return accountFromDb;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase authentication lookup failed:', e);
+    }
+  }
+
+  return null;
 }
 
 // Check if username or email already exists in registry

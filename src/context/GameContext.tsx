@@ -19,7 +19,7 @@ import type {
 } from '../types/game';
 import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS } from '../data/campusData';
 import { DEFAULT_PLAYER_CUSTOMIZATION } from '../data/npcData';
-import type { StudentAccount } from '../lib/supabase';
+import { supabase, type StudentAccount } from '../lib/supabase';
 
 export interface RoomTheme {
   name: string;
@@ -768,6 +768,58 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     [addToast]
   );
+
+  // Realtime Subscription: Sync Admin Balance / Cash Updates to Player HUD in Real Time
+  useEffect(() => {
+    if (!stats.matricNo || !supabase) return;
+
+    const channel = supabase
+      .channel('student-balance-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'students',
+          filter: `matric_no=eq.${stats.matricNo}`,
+        },
+        (payload: any) => {
+          if (!payload.new) return;
+          const hasCash = payload.new.cash !== undefined && payload.new.cash !== null;
+          const hasStatus = Boolean(payload.new.status);
+
+          if (hasCash || hasStatus) {
+            const newCash = hasCash ? Number(payload.new.cash) : undefined;
+            const newStatus: SocioeconomicStatus | undefined = hasStatus
+              ? (String(payload.new.status).toLowerCase().includes('nepo') ? 'nepo' : 'lapo')
+              : undefined;
+
+            setStats((prev) => {
+              const updated = {
+                ...prev,
+                ...(newCash !== undefined ? { balance: newCash } : {}),
+                ...(newStatus !== undefined ? { status: newStatus } : {}),
+              };
+              try {
+                localStorage.setItem('lu_player_profile', JSON.stringify(updated));
+              } catch {
+                // ignore
+              }
+              return updated;
+            });
+
+            if (newCash !== undefined) {
+              addToast(`💰 Live HUD Update: Cash balance updated to ₦${newCash.toLocaleString()}`, 'success');
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
+  }, [stats.matricNo, addToast]);
 
   const takeLapoLoan = useCallback((): boolean => {
     if (stats.status !== 'lapo') {

@@ -409,6 +409,11 @@ export const MatriculationModal: React.FC = () => {
     await registerStudentToDatabase({
       matricNo,
       fullName: username.trim(),
+      password: password.trim(),
+      pin: password.trim(),
+      email: email.trim() || undefined,
+      gender,
+      faculty: selectedFaculty,
       department,
       level: '100 Level (Fresher)',
       status: rollResult === 'nepo' ? 'Nepo Baby' : 'Lapo Hustler',
@@ -496,7 +501,7 @@ export const MatriculationModal: React.FC = () => {
             Liids University (LU), Ibadan
           </h2>
           <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700 mt-0.5">
-            Student Portal & Campus Life 2024/2025
+            STUDENT PORTAL & CAMPUS LIFE 2026/2027
           </p>
 
           {/* Mode Switcher Tabs (Sign In vs Register) - Only on initial screens */}

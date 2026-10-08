@@ -160,8 +160,14 @@ export function useMultiplayer({
         }
 
         case 'ADMIN_STATUS_CHANGE': {
-          const { studentId, newStatus, newBalance } = msg.payload;
-          if (studentId === localId && onStatusChangeByAdmin) {
+          const { studentId, matricNo: payloadMatric, newStatus, newBalance } = msg.payload || {};
+          const isTarget =
+            studentId === localId ||
+            (payloadMatric && matricNo && payloadMatric.toLowerCase() === matricNo.toLowerCase()) ||
+            (studentId && matricNo && studentId.toLowerCase() === matricNo.toLowerCase()) ||
+            (localId && studentId && (localId.includes(studentId.replace(/\//g, '_')) || studentId.includes(localId)));
+
+          if (isTarget && onStatusChangeByAdmin) {
             onStatusChangeByAdmin(newStatus, newBalance);
           }
           // Refresh student list and remote player map

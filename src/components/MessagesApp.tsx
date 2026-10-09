@@ -15,8 +15,8 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
-import { useDirectMessages } from '../hooks/useDirectMessages';
-import { getRegisteredStudents, getStudentAccounts } from '../lib/supabase';
+import { useDirectMessages, type DirectMessageMetadata } from '../hooks/useDirectMessages';
+import { supabase, getRegisteredStudents, getStudentAccounts } from '../lib/supabase';
 import type { RemotePlayer, GameLocation } from '../types/game';
 
 export interface PeerUser {
@@ -69,10 +69,22 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
   const [isSending, setIsSending] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Direct messages hook for active peer
+  const activeChatUser = useMemo(
+    () =>
+      activePeer
+        ? {
+            matric_no: activePeer.matricNo,
+            username: activePeer.username,
+          }
+        : null,
+    [activePeer]
+  );
+
+  // Direct messages hook for active peer (with live Realtime subscription)
   const { messages, isLoading, sendMessage } = useDirectMessages({
     targetMatric: activePeer?.matricNo || '',
     targetUsername: activePeer?.username || '',
+    activeChatUser: activeChatUser || undefined,
   });
 
   // Base list of seeded peers
@@ -188,8 +200,11 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
       bc.onmessage = (event) => {
         if (event.data?.type === 'NEW_DM' && event.data.payload) {
           const msg = event.data.payload;
-          if (msg.recipient_matric === stats.matricNo && msg.sender_matric) {
-            recordActiveChat(msg.sender_matric);
+          const recipient = (msg.recipient_matric || msg.recipient_id || '').toLowerCase();
+          const myMatric = (stats.matricNo || '').toLowerCase();
+          const sender = msg.sender_matric || msg.sender_id;
+          if (recipient === myMatric && sender) {
+            recordActiveChat(sender);
           }
         }
       };
@@ -199,6 +214,38 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
     } catch {
       // ignore
     }
+  }, [stats.matricNo, recordActiveChat]);
+
+  // Realtime Supabase listener to add new DM conversations to the inbox
+  useEffect(() => {
+    if (!stats.matricNo || !supabase) return;
+    const myMatricClean = stats.matricNo.trim().toLowerCase();
+
+    const channel = supabase
+      .channel(`inbox-dms-${myMatricClean.replace(/\//g, '_')}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+        },
+        (payload: any) => {
+          const newMsg = payload.new;
+          if (!newMsg) return;
+          const recipient = (newMsg.recipient_matric || newMsg.recipient_id || '').trim().toLowerCase();
+          const sender = (newMsg.sender_matric || newMsg.sender_id || '').trim();
+
+          if (recipient === myMatricClean && sender.toLowerCase() !== myMatricClean) {
+            recordActiveChat(sender);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
   }, [stats.matricNo, recordActiveChat]);
 
   // Load registered campus students & accounts for directory search
@@ -950,8 +997,13 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
               </div>
             ) : (
               messages.map((msg) => {
-                const isMe = msg.sender_matric === stats.matricNo;
-                const meta = msg.metadata;
+                const isMe =
+                  (msg.sender_matric || msg.sender_id || '').toLowerCase() ===
+                  (stats.matricNo || '').toLowerCase();
+                const meta: DirectMessageMetadata | undefined = msg.metadata || {
+                  type: (msg.action_type as any) || 'text',
+                  amount: msg.amount || 0,
+                };
 
                 return (
                   <div

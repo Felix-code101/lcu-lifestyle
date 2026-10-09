@@ -838,6 +838,78 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [stats.matricNo, addToast]);
 
+  // Realtime Push-Style In-App Notifications for Incoming Direct Messages
+  useEffect(() => {
+    if (!stats.matricNo || !supabase) return;
+
+    const myMatric = stats.matricNo.trim().toLowerCase();
+    const dmPushChannel = supabase
+      .channel(`dm-notifications-${myMatric.replace(/\//g, '_')}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'direct_messages',
+        },
+        (payload: any) => {
+          const newMsg = payload.new;
+          if (!newMsg) return;
+          const recipient = (newMsg.recipient_matric || newMsg.recipient_id || '').trim().toLowerCase();
+          const sender = (newMsg.sender_matric || newMsg.sender_id || '').trim();
+
+          // Only notify if message is destined for current student and not sent by current student
+          if (recipient === myMatric && sender.toLowerCase() !== myMatric) {
+            // 1. Record sender to user's active chats in localStorage so they appear in inbox
+            try {
+              const activeChatsKey = `lu_active_chats_${stats.matricNo}`;
+              const raw = localStorage.getItem(activeChatsKey);
+              const list: string[] = raw ? JSON.parse(raw) : [];
+              if (!list.includes(sender)) {
+                localStorage.setItem(activeChatsKey, JSON.stringify([sender, ...list]));
+              }
+            } catch {
+              // ignore
+            }
+
+            // 2. Play subtle notification sound
+            try {
+              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+              if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+              }
+            } catch {
+              // ignore
+            }
+
+            // 3. Trigger Push-Style In-App Notification banner
+            const senderName = newMsg.sender_name || `@${sender}`;
+            const preview =
+              newMsg.content && newMsg.content.length > 50
+                ? `${newMsg.content.slice(0, 47)}...`
+                : newMsg.content || 'New message';
+            addToast(`💬 ${senderName}: "${preview}"`, 'info');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(dmPushChannel);
+    };
+  }, [stats.matricNo, addToast]);
+
   // Auto-Dismiss Modals on Bottom Navigation Tab Change
   useEffect(() => {
     // Reset any active sub-modals or placement tools when changing main tabs

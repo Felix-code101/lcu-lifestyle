@@ -13,6 +13,9 @@ import {
   CheckCheck,
   X,
   CreditCard,
+  MoreHorizontal,
+  Flame,
+  Mic,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useDirectMessages, type DirectMessageMetadata } from '../hooks/useDirectMessages';
@@ -63,6 +66,8 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
   const [requestMoneyAmount, setRequestMoneyAmount] = useState<string>('2000');
   const [isBuyFoodModalOpen, setIsBuyFoodModalOpen] = useState<boolean>(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState<boolean>(false);
+  const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState<boolean>(false);
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState<boolean>(false);
 
   // Text message input state
   const [inputText, setInputText] = useState<string>('');
@@ -411,15 +416,21 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
 
   // Quick reply chips
   const nigerianQuickChips = [
-    'How far? 🫱🏿',
+    'How far? 👏',
     'I dey o 😂',
     'Wetin dey happen?',
-    'Where you dey?',
-    'Come my hostel',
+    'Where you dey? 👀',
+    'Send urgent 2k 💸',
+    'Come my hostel 🏠',
+    'Drop aza 💳',
   ];
 
   // Emojis list
-  const emojiPalette = ['😂', '🔥', '🫱🏿', '🍾', '💸', '🍛', '😴', '❤️', '🙌', '👀', '💯', '🙏'];
+  const emojiPalette = ['😂', '🔥', '👏', '🍾', '💸', '🍛', '😴', '❤️', '🙌', '👀', '💯', '🙏'];
+
+  const handleMicClick = () => {
+    addToast('🎙️ Voice note simulation (Hold to record)', 'info');
+  };
 
   // =========================================================================
   // INTERACTIVE SOCIAL ACTION PILL HANDLERS
@@ -530,16 +541,40 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
     }
   };
 
-  // Format message time
+  // Format message time (12-hour format e.g. "10:05 PM")
   const formatTime = (iso?: string) => {
-    if (!iso) return 'now';
+    if (!iso) return '10:05 PM';
     try {
       const d = new Date(iso);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (isNaN(d.getTime())) return '10:05 PM';
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     } catch {
-      return 'now';
+      return '10:05 PM';
     }
   };
+
+  // Format date badge (e.g. "Tue, Oct 6")
+  const formatChatDate = (iso?: string) => {
+    if (!iso) return 'Tue, Oct 6';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return 'Tue, Oct 6';
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    } catch {
+      return 'Tue, Oct 6';
+    }
+  };
+
+  const newMessagesSeparatorIndex = useMemo(() => {
+    if (messages.length === 0) return -1;
+    const firstIncoming = messages.findIndex(
+      (m) =>
+        (m.sender_matric || m.sender_id || '').toLowerCase() !==
+        (stats.matricNo || '').toLowerCase()
+    );
+    if (firstIncoming !== -1) return firstIncoming;
+    return messages.length > 1 ? messages.length - 1 : 0;
+  }, [messages, stats.matricNo]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 select-none overflow-hidden animate-in fade-in duration-200">
@@ -862,122 +897,98 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
       {activePeer && (
         <div className="flex-1 flex flex-col h-full overflow-hidden animate-in slide-in-from-right duration-200">
           {/* Header */}
-          <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3.5 py-2.5 shadow-2xs shrink-0 z-10">
+          <div className="bg-white border-b border-slate-100 px-3.5 pt-3 pb-2.5 shrink-0 z-10 shadow-2xs">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setActivePeer(null)}
-                  className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors cursor-pointer"
-                  title="Back to inbox"
+                  className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-800 transition-colors cursor-pointer -ml-1"
+                  title="Back"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
                 </button>
-
-                {/* Avatar */}
-                <div className="relative">
-                  <div className="w-9 h-9 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-lg shadow-2xs">
-                    {activePeer.avatar}
-                  </div>
-                  {activePeer.isOnline && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
-                  )}
-                </div>
-
-                {/* Name & Subtitle */}
-                <div className="text-left ml-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-bold text-slate-900 tracking-tight">
-                      @{activePeer.username}
-                    </h3>
-                    <span
-                      className={`px-1.5 py-0.2 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                        activePeer.status === 'nepo'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}
-                    >
-                      {activePeer.status === 'nepo' ? '👑 Nepo' : '💼 Lapo'}
-                    </span>
-                  </div>
-                  <p className="text-[9px] text-slate-400 font-medium">
-                    Real player · only you two can see this
-                  </p>
-                </div>
+                <span className="font-bold text-sm text-slate-900 tracking-tight">
+                  @{activePeer.username}
+                </span>
               </div>
 
-              {/* Privacy Lock Badge */}
-              <div className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-100 text-slate-500 text-[9px] font-bold border border-slate-200/80">
-                <Lock className="w-3 h-3 text-slate-400" />
-                <span className="hidden sm:inline">Private</span>
-              </div>
+              {/* Right: More options circle button (•••) */}
+              <button
+                onClick={() => setIsMoreOptionsOpen(true)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
+                title="More options"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Privacy Subtext Indicator */}
-            <div className="mt-1 flex items-center justify-center gap-1 text-[9px] text-slate-400">
-              <Lock className="w-2.5 h-2.5 text-slate-400" />
+            {/* Subtitle: 🔒 Private · only you and @Username can see this (small, muted text) */}
+            <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-400 pl-1 font-normal">
+              <Lock className="w-3 h-3 text-slate-400 shrink-0" />
               <span>Private · only you and @{activePeer.username} can see this</span>
             </div>
           </div>
 
-          {/* Interactive Campus Action Pills (Top Strip) */}
-          <div className="bg-white border-b border-slate-200/80 px-2.5 py-1.5 overflow-x-auto flex items-center gap-1.5 no-scrollbar shrink-0 shadow-2xs">
-            {/* 1. 🏠 Invite over */}
+          {/* Streak Card */}
+          <div className="mx-3.5 mt-2.5 mb-2 p-3 rounded-2xl bg-slate-50 border border-slate-200/90 flex items-center justify-between gap-2 shadow-2xs shrink-0">
+            <div className="flex-1 pr-2">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                <Flame className="w-4 h-4 text-orange-500 fill-orange-500 shrink-0" />
+                <span>Start a streak.</span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                Both of you do something together on the same day, every day.
+              </p>
+            </div>
             <button
-              onClick={handleInviteOver}
-              className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 text-slate-700 text-[10px] font-semibold whitespace-nowrap shrink-0 flex items-center gap-1 transition-colors active:scale-95 cursor-pointer"
+              onClick={() => setIsStreakModalOpen(true)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline shrink-0 whitespace-nowrap cursor-pointer transition-colors"
             >
-              <Home className="w-3 h-3 text-emerald-600" />
-              <span>Invite over</span>
-            </button>
-
-            {/* 2. 🚪 Visit them */}
-            <button
-              onClick={handleVisitThem}
-              className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-200 text-slate-700 text-[10px] font-semibold whitespace-nowrap shrink-0 flex items-center gap-1 transition-colors active:scale-95 cursor-pointer"
-            >
-              <DoorOpen className="w-3 h-3 text-blue-600" />
-              <span>Visit them</span>
-            </button>
-
-            {/* 3. 💸 Send money */}
-            <button
-              onClick={() => setIsSendMoneyModalOpen(true)}
-              className="px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 transition-colors active:scale-95 cursor-pointer shadow-2xs"
-            >
-              <DollarSign className="w-3 h-3 text-emerald-600" />
-              <span>Send money</span>
-            </button>
-
-            {/* 4. 🙏 Request money */}
-            <button
-              onClick={() => setIsRequestMoneyModalOpen(true)}
-              className="px-2.5 py-1 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 transition-colors active:scale-95 cursor-pointer"
-            >
-              <HandCoins className="w-3 h-3 text-amber-600" />
-              <span>Request money</span>
-            </button>
-
-            {/* 5. 🍛 Buy food */}
-            <button
-              onClick={() => setIsBuyFoodModalOpen(true)}
-              className="px-2.5 py-1 rounded-full bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-300 text-[10px] font-bold whitespace-nowrap shrink-0 flex items-center gap-1 transition-colors active:scale-95 cursor-pointer"
-            >
-              <UtensilsCrossed className="w-3 h-3 text-orange-600" />
-              <span>Buy food</span>
+              What counts?
             </button>
           </div>
 
-          {/* Chat History Canvas */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-slate-50 via-slate-100/40 to-emerald-50/20">
+          {/* Action Chips Row */}
+          <div className="px-3.5 pb-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            {/* 🏠 Invite (light green tint) */}
+            <button
+              onClick={handleInviteOver}
+              className="flex-1 min-w-[95px] py-2 px-3 rounded-full bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-200/70 text-emerald-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <span className="text-xs">🏠</span>
+              <span>Invite</span>
+            </button>
+
+            {/* 🚪 Visit (light blue/grey tint) */}
+            <button
+              onClick={handleVisitThem}
+              className="flex-1 min-w-[95px] py-2 px-3 rounded-full bg-sky-50/80 hover:bg-sky-100/90 border border-sky-200/70 text-sky-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <span className="text-xs">🚪</span>
+              <span>Visit</span>
+            </button>
+
+            {/* 💸 Send money (light yellow tint) */}
+            <button
+              onClick={() => setIsSendMoneyModalOpen(true)}
+              className="flex-1 min-w-[110px] py-2 px-3 rounded-full bg-amber-50 hover:bg-amber-100/90 border border-amber-200/70 text-amber-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <span className="text-xs">💸</span>
+              <span>Send money</span>
+            </button>
+          </div>
+
+          {/* Chat Stream Canvas */}
+          <div className="flex-1 overflow-y-auto px-3.5 py-2 space-y-2.5 bg-white">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 <span className="text-xs font-medium">Opening secure direct channel...</span>
               </div>
             ) : messages.length === 0 ? (
               /* Greeting Wave */
               <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500 gap-2.5">
-                <div className="w-14 h-14 rounded-3xl bg-white border border-slate-200 flex items-center justify-center text-3xl shadow-sm">
+                <div className="w-14 h-14 rounded-3xl bg-slate-50 border border-slate-200 flex items-center justify-center text-3xl shadow-sm">
                   👋
                 </div>
                 <div>
@@ -989,184 +1000,207 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
                   </p>
                 </div>
                 <button
-                  onClick={() => handleSendMessage('How far? 🫱🏿')}
-                  className="px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  onClick={() => handleSendMessage('How far? 👏')}
+                  className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5"
                 >
-                  <span>👋 Send "How far? 🫱🏿"</span>
+                  <span>👋 Send "How far? 👏"</span>
                 </button>
               </div>
             ) : (
-              messages.map((msg) => {
-                const isMe =
-                  (msg.sender_matric || msg.sender_id || '').toLowerCase() ===
-                  (stats.matricNo || '').toLowerCase();
-                const meta: DirectMessageMetadata | undefined = msg.metadata || {
-                  type: (msg.action_type as any) || 'text',
-                  amount: msg.amount || 0,
-                };
+              <>
+                {/* Centered date badge: Tue, Oct 6 in soft grey text */}
+                <div className="flex items-center justify-center my-2">
+                  <span className="text-xs font-medium text-slate-400">
+                    {formatChatDate(messages[0]?.created_at)}
+                  </span>
+                </div>
 
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group animate-in fade-in duration-150`}
-                  >
-                    {/* SPECIAL INTERACTION CARDS */}
-                    {meta?.type === 'money_transfer' ? (
-                      /* Money Transfer Card */
-                      <div
-                        className={`max-w-[85%] p-3 rounded-2xl shadow-sm mb-1 text-left ${
-                          isMe
-                            ? 'bg-emerald-600 text-white rounded-tr-xs'
-                            : 'bg-white text-slate-800 border-2 border-emerald-300 rounded-tl-xs'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
-                          <DollarSign className={`w-4 h-4 ${isMe ? 'text-emerald-200' : 'text-emerald-600'}`} />
-                          <span>Kuda Instant Cash Transfer</span>
-                        </div>
-                        <div className="text-base font-black my-1">
-                          ₦{meta.amount?.toLocaleString()}
-                        </div>
-                        <p className={`text-[10px] ${isMe ? 'text-emerald-100' : 'text-slate-600'}`}>
-                          {msg.content}
-                        </p>
-                        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-emerald-500/30 text-[8px]">
-                          <span className={isMe ? 'text-emerald-200' : 'text-emerald-700 font-bold'}>
-                            ✓ Settled into student account
+                {messages.map((msg, index) => {
+                  const isMe =
+                    (msg.sender_matric || msg.sender_id || '').toLowerCase() ===
+                    (stats.matricNo || '').toLowerCase();
+                  const meta: DirectMessageMetadata | undefined = msg.metadata || {
+                    type: (msg.action_type as any) || 'text',
+                    amount: msg.amount || 0,
+                  };
+
+                  const showSeparator = index === newMessagesSeparatorIndex;
+
+                  return (
+                    <React.Fragment key={msg.id || index}>
+                      {/* Red line separator: ────── New messages ────── */}
+                      {showSeparator && (
+                        <div className="flex items-center gap-3 my-3 px-2">
+                          <div className="flex-1 border-t border-red-200" />
+                          <span className="text-red-500 border-red-200 text-xs font-semibold whitespace-nowrap">
+                            New messages
                           </span>
-                          <span className={isMe ? 'text-emerald-200' : 'text-slate-400'}>
-                            {formatTime(msg.created_at)}
-                          </span>
+                          <div className="flex-1 border-t border-red-200" />
                         </div>
-                      </div>
-                    ) : meta?.type === 'money_request' ? (
-                      /* Money Request / Billing Card */
+                      )}
+
                       <div
-                        className={`max-w-[85%] p-3 rounded-2xl shadow-sm mb-1 text-left ${
-                          isMe
-                            ? 'bg-amber-600 text-white rounded-tr-xs'
-                            : 'bg-white text-slate-800 border-2 border-amber-300 rounded-tl-xs'
-                        }`}
+                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group animate-in fade-in duration-150`}
                       >
-                        <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
-                          <HandCoins className={`w-4 h-4 ${isMe ? 'text-amber-200' : 'text-amber-600'}`} />
-                          <span>Urgent 2k Billing Request</span>
-                        </div>
-                        <div className="text-base font-black my-1">
-                          ₦{meta.amount?.toLocaleString()}
-                        </div>
-                        <p className={`text-[10px] ${isMe ? 'text-amber-100' : 'text-slate-600'}`}>
-                          {msg.content}
-                        </p>
-                        {/* Interactive Pay Button if received by me */}
-                        {!isMe && (
-                          <div className="mt-2.5 pt-2 border-t border-slate-200">
-                            <button
-                              onClick={() => handlePayBillingRequest(meta.amount || 2000)}
-                              className="w-full py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs transition-colors"
-                            >
-                              <CreditCard className="w-3 h-3" />
-                              Pay ₦{(meta.amount || 2000).toLocaleString()} Now
-                            </button>
+                        {/* SPECIAL INTERACTION CARDS */}
+                        {meta?.type === 'money_transfer' ? (
+                          /* Money Transfer Card */
+                          <div
+                            className={`max-w-[85%] p-3.5 rounded-3xl shadow-sm mb-1 text-left ${
+                              isMe
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900 border border-slate-200/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
+                              <DollarSign className={`w-4 h-4 ${isMe ? 'text-blue-200' : 'text-emerald-600'}`} />
+                              <span>Kuda Instant Cash Transfer</span>
+                            </div>
+                            <div className="text-base font-black my-1">
+                              ₦{meta.amount?.toLocaleString()}
+                            </div>
+                            <p className={`text-[11px] ${isMe ? 'text-blue-100' : 'text-gray-700'}`}>
+                              {msg.content}
+                            </p>
+                            <div className={`flex items-center justify-between mt-2 pt-1.5 border-t ${isMe ? 'border-blue-500/40' : 'border-slate-200'} text-[9px]`}>
+                              <span className={isMe ? 'text-blue-200 font-semibold' : 'text-emerald-700 font-bold'}>
+                                ✓ Settled into student account
+                              </span>
+                              <span className={isMe ? 'text-blue-200' : 'text-slate-400'}>
+                                {formatTime(msg.created_at)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : meta?.type === 'money_request' ? (
+                          /* Money Request / Billing Card */
+                          <div
+                            className={`max-w-[85%] p-3.5 rounded-3xl shadow-sm mb-1 text-left ${
+                              isMe
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900 border border-slate-200/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
+                              <HandCoins className={`w-4 h-4 ${isMe ? 'text-blue-200' : 'text-amber-600'}`} />
+                              <span>Urgent 2k Billing Request</span>
+                            </div>
+                            <div className="text-base font-black my-1">
+                              ₦{meta.amount?.toLocaleString()}
+                            </div>
+                            <p className={`text-[11px] ${isMe ? 'text-blue-100' : 'text-gray-700'}`}>
+                              {msg.content}
+                            </p>
+                            {!isMe && (
+                              <div className="mt-2.5 pt-2 border-t border-slate-200">
+                                <button
+                                  onClick={() => handlePayBillingRequest(meta.amount || 2000)}
+                                  className="w-full py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                >
+                                  <CreditCard className="w-3 h-3" />
+                                  Pay ₦{(meta.amount || 2000).toLocaleString()} Now
+                                </button>
+                              </div>
+                            )}
+                            <span className={`text-[9px] mt-1.5 block text-right ${isMe ? 'text-blue-200' : 'text-slate-400'}`}>
+                              {formatTime(msg.created_at)}
+                            </span>
+                          </div>
+                        ) : meta?.type === 'food_gift' ? (
+                          /* Food Delivery Gift Card */
+                          <div
+                            className={`max-w-[85%] p-3.5 rounded-3xl shadow-sm mb-1 text-left ${
+                              isMe
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900 border border-slate-200/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
+                              <UtensilsCrossed className={`w-4 h-4 ${isMe ? 'text-blue-200' : 'text-orange-600'}`} />
+                              <span>Campus Chow Delivery Gift</span>
+                            </div>
+                            <div className="text-xs font-bold my-1 flex items-center gap-1">
+                              <span>🛵 {meta.foodName}</span>
+                            </div>
+                            <p className={`text-[11px] ${isMe ? 'text-blue-100' : 'text-gray-700'}`}>
+                              {msg.content}
+                            </p>
+                            <span className={`text-[9px] mt-1.5 block text-right ${isMe ? 'text-blue-200' : 'text-slate-400'}`}>
+                              {formatTime(msg.created_at)}
+                            </span>
+                          </div>
+                        ) : meta?.type === 'invite_hostel' ? (
+                          /* Hostel Invite Card */
+                          <div
+                            className={`max-w-[85%] p-3.5 rounded-3xl shadow-sm mb-1 text-left ${
+                              isMe
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-900 border border-slate-200/80'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
+                              <Home className={`w-4 h-4 ${isMe ? 'text-blue-200' : 'text-blue-600'}`} />
+                              <span>Hostel Hangout Invitation</span>
+                            </div>
+                            <p className={`text-[11px] my-1 ${isMe ? 'text-blue-100' : 'text-gray-700'}`}>
+                              {msg.content}
+                            </p>
+                            {!isMe && (
+                              <button
+                                onClick={() => {
+                                  const dest = (meta.location as GameLocation) || 'home_hostel';
+                                  navigateToLocation(dest);
+                                  addToast(`🏃 Accepted invite! Teleporting to ${dest}`, 'success');
+                                }}
+                                className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs transition-colors cursor-pointer"
+                              >
+                                <DoorOpen className="w-3 h-3" />
+                                Accept & Warp to Room
+                              </button>
+                            )}
+                            <span className={`text-[9px] mt-1.5 block text-right ${isMe ? 'text-blue-200' : 'text-slate-400'}`}>
+                              {formatTime(msg.created_at)}
+                            </span>
+                          </div>
+                        ) : isMe ? (
+                          /* Outgoing messages: Rich vibrant blue pill (bg-blue-600 text-white rounded-3xl py-2 px-4) with white timestamp + double checkmarks (10:05 PM ✓✓) */
+                          <div className="relative max-w-[80%] bg-blue-600 text-white rounded-3xl py-2 px-4 shadow-xs text-left">
+                            <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words select-text text-white">
+                              {msg.content}
+                            </p>
+                            <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-white/90 font-medium">
+                              <span>{formatTime(msg.created_at)}</span>
+                              <CheckCheck className="w-3.5 h-3.5 text-white inline" />
+                            </div>
+                          </div>
+                        ) : (
+                          /* Incoming messages: Off-white/light grey bubble (bg-gray-100 text-gray-900 rounded-3xl py-2 px-4) */
+                          <div className="relative max-w-[80%] bg-gray-100 text-gray-900 rounded-3xl py-2 px-4 shadow-2xs text-left">
+                            <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words select-text text-gray-900">
+                              {msg.content}
+                            </p>
+                            <div className="flex items-center justify-start gap-1 mt-1 text-[9px] text-slate-400 font-medium">
+                              <span>{formatTime(msg.created_at)}</span>
+                            </div>
                           </div>
                         )}
-                        <span className={`text-[8px] mt-1.5 block text-right ${isMe ? 'text-amber-200' : 'text-slate-400'}`}>
-                          {formatTime(msg.created_at)}
-                        </span>
                       </div>
-                    ) : meta?.type === 'food_gift' ? (
-                      /* Food Delivery Gift Card */
-                      <div
-                        className={`max-w-[85%] p-3 rounded-2xl shadow-sm mb-1 text-left ${
-                          isMe
-                            ? 'bg-orange-600 text-white rounded-tr-xs'
-                            : 'bg-white text-slate-800 border-2 border-orange-300 rounded-tl-xs'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
-                          <UtensilsCrossed className={`w-4 h-4 ${isMe ? 'text-orange-200' : 'text-orange-600'}`} />
-                          <span>Campus Chow Delivery Gift</span>
-                        </div>
-                        <div className="text-xs font-bold my-1 flex items-center gap-1">
-                          <span>🛵 {meta.foodName}</span>
-                        </div>
-                        <p className={`text-[10px] ${isMe ? 'text-orange-100' : 'text-slate-600'}`}>
-                          {msg.content}
-                        </p>
-                        <span className={`text-[8px] mt-1.5 block text-right ${isMe ? 'text-orange-200' : 'text-slate-400'}`}>
-                          {formatTime(msg.created_at)}
-                        </span>
-                      </div>
-                    ) : meta?.type === 'invite_hostel' ? (
-                      /* Hostel Invite Card */
-                      <div
-                        className={`max-w-[85%] p-3 rounded-2xl shadow-sm mb-1 text-left ${
-                          isMe
-                            ? 'bg-blue-600 text-white rounded-tr-xs'
-                            : 'bg-white text-slate-800 border-2 border-blue-300 rounded-tl-xs'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-1 text-[10px] font-bold">
-                          <Home className={`w-4 h-4 ${isMe ? 'text-blue-200' : 'text-blue-600'}`} />
-                          <span>Hostel Hangout Invitation</span>
-                        </div>
-                        <p className={`text-[10px] my-1 ${isMe ? 'text-blue-100' : 'text-slate-600'}`}>
-                          {msg.content}
-                        </p>
-                        {!isMe && (
-                          <button
-                            onClick={() => {
-                              const dest = (meta.location as GameLocation) || 'home_hostel';
-                              navigateToLocation(dest);
-                              addToast(`🏃 Accepted invite! Teleporting to ${dest}`, 'success');
-                            }}
-                            className="mt-2 w-full py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold flex items-center justify-center gap-1 shadow-xs transition-colors"
-                          >
-                            <DoorOpen className="w-3 h-3" />
-                            Accept & Warp to Room
-                          </button>
-                        )}
-                        <span className={`text-[8px] mt-1.5 block text-right ${isMe ? 'text-blue-200' : 'text-slate-400'}`}>
-                          {formatTime(msg.created_at)}
-                        </span>
-                      </div>
-                    ) : (
-                      /* Regular Text Message Bubble */
-                      <div
-                        className={`relative max-w-[82%] px-3.5 py-2 text-left shadow-2xs transition-transform ${
-                          isMe
-                            ? 'bg-emerald-600 text-white rounded-2xl rounded-tr-xs shadow-emerald-600/10'
-                            : 'bg-white text-slate-800 border border-slate-200/90 rounded-2xl rounded-tl-xs'
-                        }`}
-                      >
-                        <p className="text-xs leading-relaxed font-normal whitespace-pre-wrap break-words select-text">
-                          {msg.content}
-                        </p>
-                        <div
-                          className={`flex items-center justify-end gap-1 mt-1 text-[8px] ${
-                            isMe ? 'text-emerald-100/90' : 'text-slate-400'
-                          }`}
-                        >
-                          <span>{formatTime(msg.created_at)}</span>
-                          {isMe && <CheckCheck className="w-3 h-3 text-emerald-200 inline" />}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                    </React.Fragment>
+                  );
+                })}
+              </>
             )}
 
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Nigerian Quick-Reply Chip Bar */}
-          <div className="bg-white/95 border-t border-slate-200/80 px-2 py-1.5 overflow-x-auto flex items-center gap-1.5 no-scrollbar shrink-0">
+          {/* Quick Replies & Input Bar */}
+          {/* Quick reply pill carousels: How far? 👏, I dey o 😂, Wetin dey happen?, etc. */}
+          <div className="bg-white border-t border-slate-100 px-3 py-2 overflow-x-auto flex items-center gap-1.5 no-scrollbar shrink-0">
             {nigerianQuickChips.map((chip, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSendMessage(chip)}
-                className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200 text-slate-700 text-[10px] font-medium whitespace-nowrap shrink-0 transition-colors active:scale-95 cursor-pointer"
+                className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium whitespace-nowrap shrink-0 transition-colors active:scale-95 cursor-pointer"
               >
                 {chip}
               </button>
@@ -1175,7 +1209,7 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
 
           {/* Emoji Palette Dropdown */}
           {isEmojiPickerOpen && (
-            <div className="bg-white border-t border-slate-200 px-3 py-2 flex items-center justify-around gap-1 shrink-0 animate-in slide-in-from-bottom-2 duration-150">
+            <div className="bg-white border-t border-slate-100 px-3 py-2 flex items-center justify-around gap-1 shrink-0 animate-in slide-in-from-bottom-2 duration-150">
               {emojiPalette.map((em, idx) => (
                 <button
                   key={idx}
@@ -1188,43 +1222,55 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
             </div>
           )}
 
-          {/* Message Input Bar */}
-          <div className="p-2.5 bg-white border-t border-slate-200/90 flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                isEmojiPickerOpen
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
-              title="Pick emoji"
-            >
-              <Smile className="w-4 h-4" />
-            </button>
+          {/* Input row: White capsule input with smiley emoji icon on the left, Message @username... placeholder, and a green circular action button on the right (Send icon or Mic icon) */}
+          <div className="p-2.5 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0">
+            {/* White capsule input */}
+            <div className="flex-1 bg-white border border-slate-200 rounded-full px-3.5 py-2 flex items-center gap-2 shadow-2xs focus-within:border-slate-300 focus-within:ring-1 focus-within:ring-slate-200 transition-all">
+              <button
+                onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer shrink-0"
+                title="Insert emoji"
+                type="button"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
 
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder={`Message @${activePeer.username}...`}
+                disabled={isSending}
+                maxLength={280}
+                className="flex-1 bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
+
+            {/* Green circular action button on the right (Send icon or Mic icon) */}
+            <button
+              onClick={() => {
+                if (inputText.trim()) {
                   handleSendMessage();
+                } else {
+                  handleMicClick();
                 }
               }}
-              placeholder={`Message @${activePeer.username}...`}
               disabled={isSending}
-              maxLength={280}
-              className="flex-1 bg-slate-100 hover:bg-slate-100/80 focus:bg-white text-xs px-3.5 py-2.5 rounded-full border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-hidden transition-all placeholder:text-slate-400 text-slate-800"
-            />
-
-            <button
-              onClick={() => handleSendMessage()}
-              disabled={!inputText.trim() || isSending}
-              className="w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-md shadow-emerald-600/20 active:scale-95 transition-all shrink-0 cursor-pointer"
-              title="Send message"
+              className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0 cursor-pointer active:scale-95 transition-all"
+              title={inputText.trim() ? 'Send message' : 'Voice note'}
+              type="button"
             >
-              <Send className="w-4 h-4 ml-0.5" />
+              {inputText.trim() ? (
+                <Send className="w-4 h-4 ml-0.5" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>
@@ -1425,6 +1471,121 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. MORE OPTIONS ACTION SHEET */}
+      {isMoreOptionsOpen && (
+        <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-end justify-center animate-in fade-in duration-150">
+          <div className="bg-white rounded-t-3xl p-4 w-full shadow-2xl border-t border-slate-200 text-left animate-in slide-in-from-bottom duration-200">
+            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3" />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">@{activePeer?.username}</h4>
+                <p className="text-[10px] text-slate-400">
+                  {activePeer?.displayName} · {activePeer?.department || 'Student'}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsMoreOptionsOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1 py-2">
+              <button
+                onClick={() => {
+                  setIsMoreOptionsOpen(false);
+                  addToast(`👤 Student ${activePeer?.displayName} (${activePeer?.matricNo})`, 'info');
+                }}
+                className="w-full px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <span>👤</span>
+                <span>View Student Profile</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsMoreOptionsOpen(false);
+                  if (activePeer) {
+                    const storageKey = `lu_dm_history_${[stats.matricNo || '', activePeer.matricNo].sort().join('__')}`;
+                    localStorage.removeItem(storageKey);
+                    addToast('🧹 Chat history cleared for this conversation', 'success');
+                  }
+                }}
+                className="w-full px-3 py-2.5 rounded-xl hover:bg-slate-50 text-left text-xs font-medium text-slate-700 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <span>🧹</span>
+                <span>Clear Conversation History</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsMoreOptionsOpen(false);
+                  addToast('🚨 Report submitted to Landmark University Student Affairs', 'warning');
+                }}
+                className="w-full px-3 py-2.5 rounded-xl hover:bg-red-50 text-left text-xs font-medium text-red-600 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <span>🚨</span>
+                <span>Report to Student Affairs</span>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setIsMoreOptionsOpen(false)}
+              className="w-full mt-2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. WHAT COUNTS TOWARDS STREAKS MODAL */}
+      {isStreakModalOpen && (
+        <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-5 w-full max-w-xs shadow-2xl border border-slate-200 text-left animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
+                <span className="text-base">🔥</span>
+                <span>Campus Streaks: What counts?</span>
+              </div>
+              <button
+                onClick={() => setIsStreakModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+              Both of you must do at least one activity together on the same day, every day to keep the flame alive:
+            </p>
+
+            <div className="space-y-2 mt-3 text-xs text-slate-700">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2">
+                <span>💬</span>
+                <span>Send direct messages back and forth</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2">
+                <span>🏠</span>
+                <span>Invite over or visit hostel rooms</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-2">
+                <span>💸</span>
+                <span>Send Kuda transfers or order campus chow</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsStreakModalOpen(false)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+            >
+              Got it!
+            </button>
           </div>
         </div>
       )}

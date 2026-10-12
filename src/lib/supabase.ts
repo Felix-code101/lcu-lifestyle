@@ -111,6 +111,12 @@ export interface StudentRegistrationData {
   pin?: string;
   email?: string;
   gender?: string;
+  assignedHostel?: string;
+  assigned_hostel?: string;
+  roommateName?: string;
+  roommate_name?: string;
+  roommateEvicted?: boolean;
+  roommate_evicted?: boolean;
   faculty?: string;
   department?: string;
   level?: string;
@@ -130,6 +136,16 @@ export const registerStudentToDatabase = async (playerData: StudentRegistrationD
   const cleanPass = (playerData.password || playerData.pin)?.trim();
   const matricNo = playerData.matricNo || playerData.matric_no;
   const fullName = playerData.fullName || playerData.name || playerData.username || 'Student';
+  const assignedHostel =
+    playerData.assignedHostel ||
+    playerData.assigned_hostel ||
+    (playerData.gender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)');
+  const roommateName =
+    playerData.roommateName ||
+    playerData.roommate_name ||
+    (playerData.gender === 'female' ? 'Zainab' : 'Femi');
+  const roommateEvicted =
+    playerData.roommateEvicted ?? playerData.roommate_evicted ?? false;
 
   const basePayload: Record<string, any> = {
     matric_no: matricNo,
@@ -143,8 +159,34 @@ export const registerStudentToDatabase = async (playerData: StudentRegistrationD
     last_seen: new Date().toISOString(),
   };
 
+  const fullPayload: Record<string, any> = {
+    ...basePayload,
+    gender: playerData.gender || 'male',
+    assigned_hostel: assignedHostel,
+    roommate_name: roommateName,
+    roommate_evicted: roommateEvicted,
+  };
+
   try {
-    // 1. If password provided, attempt upserting with password / pin (if schema has either column)
+    // 1. Attempt upserting full record including gender, assigned_hostel, roommate_name, roommate_evicted
+    try {
+      const payloadWithPass = cleanPass
+        ? { ...fullPayload, password: cleanPass, pin: cleanPass }
+        : fullPayload;
+      const { data, error } = await supabase
+        .from('students')
+        .upsert(payloadWithPass, { onConflict: 'matric_no' })
+        .select();
+
+      if (!error && data) {
+        console.log('Complete student record with hostel & roommate saved to Supabase:', data);
+        return data;
+      }
+    } catch {
+      // Fall through to fallback schemas
+    }
+
+    // 2. If password provided, attempt upserting with base payload + password / pin
     if (cleanPass) {
       try {
         const payloadWithPass = {
@@ -184,14 +226,14 @@ export const registerStudentToDatabase = async (playerData: StudentRegistrationD
       }
     }
 
-    // 2. Standard upsert with verified columns
+    // 3. Standard upsert with verified columns
     const { data, error } = await supabase
       .from('students')
       .upsert(basePayload, { onConflict: 'matric_no' })
       .select();
 
     if (error) {
-      console.error('Supabase registration failed:', error);
+      console.error('Supabase registration fallback failed:', error);
       return null;
     } else {
       console.log('Student record saved successfully to Supabase:', data);
@@ -199,6 +241,30 @@ export const registerStudentToDatabase = async (playerData: StudentRegistrationD
     }
   } catch (err) {
     console.error('Unexpected error saving student:', err);
+    return null;
+  }
+};
+
+// Evict roommate from student room in Supabase
+export const evictRoommateInDatabase = async (matricNo: string) => {
+  if (!supabase || !matricNo) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('students')
+      .update({ roommate_evicted: true })
+      .eq('matric_no', matricNo);
+
+    if (error) {
+      console.warn('Supabase roommate_evicted update note (remote schema column pending):', error.message);
+      return null;
+    }
+    console.log('Roommate eviction saved to Supabase:', data);
+    return data;
+  } catch (err) {
+    console.warn('Supabase roommate eviction error:', err);
     return null;
   }
 };
@@ -220,6 +286,10 @@ export async function getRegisteredStudents(): Promise<RegisteredStudent[]> {
           department: row.department || 'Computer Science',
           level: row.level || '100 Level (Fresher)',
           status: (row.status?.toLowerCase().includes('nepo') ? 'nepo' : 'lapo') as SocioeconomicStatus,
+          gender: row.gender,
+          assignedHostel: row.assigned_hostel,
+          roommateName: row.roommate_name,
+          roommateEvicted: row.roommate_evicted,
           balance: row.cash ?? 20000,
           cgpa: row.cgpa ?? null,
           createdAt: row.created_at || new Date().toISOString(),
@@ -426,6 +496,9 @@ export interface StudentAccount {
   password: string;
   email?: string;
   gender: CharacterGender;
+  assignedHostel?: string;
+  roommateName?: string;
+  roommateEvicted?: boolean;
   department: string;
   faculty: string;
   level: string;
@@ -531,11 +604,19 @@ export async function authenticateStudent(
         }
 
         if (passwordMatches) {
+          const studentGender = ((student as any).gender as CharacterGender) || 'male';
           const accountFromDb: StudentAccount = {
             username: student.full_name || trimmedId,
             matricNo: student.matric_no,
             password: cleanPass,
-            gender: ((student as any).gender as CharacterGender) || 'male',
+            gender: studentGender,
+            assignedHostel:
+              (student as any).assigned_hostel ||
+              (studentGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)'),
+            roommateName:
+              (student as any).roommate_name ||
+              (studentGender === 'female' ? 'Zainab' : 'Femi'),
+            roommateEvicted: (student as any).roommate_evicted ?? false,
             department: student.department || 'Computer Science',
             faculty: (student as any).faculty || 'Liids University',
             level: student.level || '100 Level (Fresher)',

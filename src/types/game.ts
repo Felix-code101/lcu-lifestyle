@@ -101,6 +101,11 @@ export interface PlayerStats {
   isAdmin: boolean;
   activeLoanAmount: number;
 
+  // Hostel & Roommate
+  assignedHostel?: string;
+  roommateName?: string;
+  roommateEvicted?: boolean;
+
   balance: number;
   energy: number;
   maxEnergy: number;
@@ -253,6 +258,9 @@ export interface RegisteredStudent {
   status: SocioeconomicStatus;
   gender?: CharacterGender;
   email?: string;
+  assignedHostel?: string;
+  roommateName?: string;
+  roommateEvicted?: boolean;
   balance: number;
   cgpa: number | null;
   createdAt: string;

@@ -387,12 +387,20 @@ export const MatriculationModal: React.FC = () => {
     const initialBalance = rollResult === 'nepo' ? 250000 : 15000;
     const initialMood = rollResult === 'nepo' ? 100 : 85;
 
+    // Gender-based hostel & roommate spawn logic
+    const assignedHostel = gender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)';
+    const roommateName = gender === 'female' ? 'Zainab' : 'Femi';
+    const roommateEvicted = false;
+
     const account: StudentAccount = {
       username: username.trim(),
       matricNo,
       password: password.trim(),
       email: email.trim() || undefined,
       gender,
+      assignedHostel,
+      roommateName,
+      roommateEvicted,
       department,
       faculty: selectedFaculty,
       level: '100 Level (Fresher)',
@@ -413,6 +421,12 @@ export const MatriculationModal: React.FC = () => {
       pin: password.trim(),
       email: email.trim() || undefined,
       gender,
+      assignedHostel,
+      assigned_hostel: assignedHostel,
+      roommateName,
+      roommate_name: roommateName,
+      roommateEvicted,
+      roommate_evicted: roommateEvicted,
       faculty: selectedFaculty,
       department,
       level: '100 Level (Fresher)',
@@ -430,6 +444,9 @@ export const MatriculationModal: React.FC = () => {
       level: '100 Level (Fresher)',
       status: rollResult,
       gender,
+      assignedHostel,
+      roommateName,
+      roommateEvicted,
       email: email.trim() || undefined,
       balance: initialBalance,
       cgpa: null,
@@ -449,6 +466,9 @@ export const MatriculationModal: React.FC = () => {
       faculty: selectedFaculty,
       status: rollResult,
       gender,
+      assignedHostel,
+      roommateName,
+      roommateEvicted,
       email: email.trim() || undefined,
       balance: initialBalance,
       mood: initialMood,

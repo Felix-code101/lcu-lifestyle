@@ -824,27 +824,41 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
                   </div>
 
                   {/* 3. Send Money to Roommate */}
-                  <div className="p-3 rounded-2xl bg-white border border-slate-200/90 flex items-center justify-between shadow-xs">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Send className="w-4 h-4" />
+                  {(() => {
+                    const rmName = stats.roommateName || (stats.gender === 'female' ? 'Zainab' : 'Femi');
+                    const isEvicted = stats.roommateEvicted;
+                    return (
+                      <div className="p-3 rounded-2xl bg-white border border-slate-200/90 flex items-center justify-between shadow-xs">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <Send className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 block">Transfer to {rmName} (Roommate)</span>
+                            <span className="text-[10px] text-slate-500">
+                              {isEvicted ? 'Moved Out • No longer in room' : '₦1,000 • +15 Mood'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          disabled={isEvicted}
+                          onClick={() => {
+                            if (isEvicted) return;
+                            if (spendBalance(1000)) {
+                              addToast(`${rmName} received ₦1,000! "Thanks boss, you be life saver!"`, 'success');
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold shadow-xs active:scale-95 ${
+                            isEvicted
+                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                          }`}
+                        >
+                          Send
+                        </button>
                       </div>
-                      <div>
-                        <span className="font-bold text-slate-900 block">Transfer to Femi (Roommate)</span>
-                        <span className="text-[10px] text-slate-500">₦1,000 • +15 Mood</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (spendBalance(1000)) {
-                          addToast('Femi received ₦1,000! "Thanks boss, you be life saver!"', 'success');
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold shadow-xs active:scale-95"
-                    >
-                      Send
-                    </button>
-                  </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Recent Transaction History */}

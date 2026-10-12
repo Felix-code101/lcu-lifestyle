@@ -136,6 +136,20 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
         unread: true,
       },
       {
+        matricNo: 'LU/24/0983',
+        username: 'Zainab_Queen',
+        displayName: 'Zainab Bello (Roommate)',
+        avatar: '🎒',
+        isOnline: true,
+        status: 'lapo',
+        department: 'Software Engineering',
+        level: '100L',
+        location: 'home_hostel',
+        lastMessageSnippet: 'Zainab: Babe carry cold soft drink and gala come! 🥤',
+        lastMessageTime: '45m',
+        unread: true,
+      },
+      {
         matricNo: 'LU/24/0521',
         username: 'Tolu_Rep',
         displayName: 'Tolu Davies (Course Rep)',
@@ -176,8 +190,8 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
     } catch {
       // ignore
     }
-    // Default contact: only Roommate Femi Adeleke so fresh student inbox is clean
-    return ['LU/24/0982'];
+    // Default contact: respective Roommate (Zainab for female, Femi for male)
+    return stats.gender === 'female' ? ['LU/24/0983'] : ['LU/24/0982'];
   });
 
   const recordActiveChat = useCallback(

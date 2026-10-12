@@ -19,7 +19,13 @@ import type {
 } from '../types/game';
 import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS } from '../data/campusData';
 import { DEFAULT_PLAYER_CUSTOMIZATION } from '../data/npcData';
-import { supabase, type StudentAccount } from '../lib/supabase';
+import {
+  supabase,
+  type StudentAccount,
+  evictRoommateInDatabase,
+  getStudentAccounts,
+  saveStudentAccount,
+} from '../lib/supabase';
 
 export interface RoomTheme {
   name: string;
@@ -336,12 +342,16 @@ interface GameContextType {
     faculty?: string;
     status: SocioeconomicStatus;
     gender?: CharacterGender;
+    assignedHostel?: string;
+    roommateName?: string;
+    roommateEvicted?: boolean;
     email?: string;
     balance: number;
     mood: number;
   }) => void;
   loginStudentProfile: (account: StudentAccount) => void;
   signOutStudent: () => void;
+  evictRoommate: () => Promise<void>;
   setSocioeconomicStatus: (status: SocioeconomicStatus, newBalance?: number) => void;
   takeLapoLoan: () => boolean;
   repayLapoLoan: () => boolean;
@@ -420,6 +430,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       matricNo: 'LU/24/0981',
       academicLevel: '100 Level (Fresher)',
       status: 'lapo',
+      gender: 'male',
+      assignedHostel: 'Emerald Hall (Male)',
+      roommateName: 'Femi',
+      roommateEvicted: false,
       isAdmin: false,
       activeLoanAmount: 0,
       balance: 15000,
@@ -480,10 +494,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const completedSemesters = Array.isArray(parsed.completedSemesters) ? parsed.completedSemesters : [];
           // If no completed exams yet, ensure fresher starts with pending CGPA
           const effectiveCgpa = completedSemesters.length > 0 ? (parsed.cgpa ?? null) : null;
+          const parsedGender = parsed.gender || 'male';
           return {
             ...defaultStats,
             ...parsed,
             completedSemesters,
+            gender: parsedGender,
+            assignedHostel:
+              parsed.assignedHostel ||
+              (parsedGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)'),
+            roommateName:
+              parsed.roommateName ||
+              (parsedGender === 'female' ? 'Zainab' : 'Femi'),
+            roommateEvicted: parsed.roommateEvicted ?? false,
             cgpa: effectiveCgpa,
             gpa: parsed.gpa ?? null,
             classesAttended: parsed.classesAttended ?? 0,
@@ -667,10 +690,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       faculty?: string;
       status: SocioeconomicStatus;
       gender?: CharacterGender;
+      assignedHostel?: string;
+      roommateName?: string;
+      roommateEvicted?: boolean;
       email?: string;
       balance: number;
       mood: number;
     }) => {
+      const pGender = profile.gender || 'male';
+      const assignedHostel =
+        profile.assignedHostel ||
+        (pGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)');
+      const roommateName =
+        profile.roommateName ||
+        (pGender === 'female' ? 'Zainab' : 'Femi');
+      const roommateEvicted = profile.roommateEvicted ?? false;
+
       setStats((prev) => {
         const next: PlayerStats = {
           ...prev,
@@ -681,7 +716,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           faculty: profile.faculty,
           academicLevel: '100 Level (Fresher)',
           status: profile.status,
-          gender: profile.gender || 'male',
+          gender: pGender,
+          assignedHostel,
+          roommateName,
+          roommateEvicted,
           email: profile.email,
           balance: profile.balance,
           mood: profile.mood,
@@ -708,6 +746,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginStudentProfile = useCallback(
     (account: StudentAccount) => {
+      const aGender = account.gender || 'male';
+      const assignedHostel =
+        account.assignedHostel ||
+        (aGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)');
+      const roommateName =
+        account.roommateName ||
+        (aGender === 'female' ? 'Zainab' : 'Femi');
+      const roommateEvicted = account.roommateEvicted ?? false;
+
       setStats((prev) => {
         const next: PlayerStats = {
           ...prev,
@@ -718,7 +765,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           faculty: account.faculty,
           academicLevel: account.level || '100 Level (Fresher)',
           status: account.status || 'lapo',
-          gender: account.gender || 'male',
+          gender: aGender,
+          assignedHostel,
+          roommateName,
+          roommateEvicted,
           email: account.email,
           balance: account.balance ?? 15000,
           cgpa: null,
@@ -739,6 +789,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     [addToast, setPlayerCustomization]
   );
+
+  const evictRoommate = useCallback(async () => {
+    // 1. Update Supabase if matricNo is known
+    if (stats.matricNo) {
+      await evictRoommateInDatabase(stats.matricNo);
+    }
+
+    // 2. Update local PlayerStats
+    setStats((prev) => {
+      const next: PlayerStats = {
+        ...prev,
+        roommateEvicted: true,
+      };
+      try {
+        localStorage.setItem('lu_player_profile', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+
+    // 3. Update cached student account in localStorage
+    try {
+      const accounts = await getStudentAccounts();
+      const idx = accounts.findIndex(
+        (a) => a.matricNo.toLowerCase() === stats.matricNo.toLowerCase()
+      );
+      if (idx >= 0) {
+        accounts[idx].roommateEvicted = true;
+        await saveStudentAccount(accounts[idx]);
+      }
+    } catch {
+      // ignore
+    }
+  }, [stats.matricNo]);
 
   const signOutStudent = useCallback(() => {
     setStats((prev) => {
@@ -2281,6 +2366,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerStudentProfile,
         loginStudentProfile,
         signOutStudent,
+        evictRoommate,
         setSocioeconomicStatus,
         takeLapoLoan,
         repayLapoLoan,

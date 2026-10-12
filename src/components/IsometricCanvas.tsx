@@ -111,37 +111,52 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
   }, []);
 
   // Sync Characters (Player at [0, 0, 0], Roommate NPC at [3, 0, -2])
-  const syncCharacters = useCallback((loc: GameLocation, custom: CharacterCustomization) => {
-    if (!charactersGroupRef.current) return;
-    const group = charactersGroupRef.current;
+  const syncCharacters = useCallback(
+    (loc: GameLocation, custom: CharacterCustomization) => {
+      if (!charactersGroupRef.current) return;
+      const group = charactersGroupRef.current;
 
-    while (group.children.length > 0) {
-      group.remove(group.children[0]);
-    }
+      while (group.children.length > 0) {
+        group.remove(group.children[0]);
+      }
 
-    // 1. Spawn Player's 3D Character on floor plane at [0, 0, 0]
-    const playerInstance = createCharacterModel(custom);
-    playerModelRef.current = playerInstance;
-    playerInstance.group.position.set(0, 0, 0);
-    playerInstance.group.rotation.y = Math.PI / 4;
-    group.add(playerInstance.group);
+      // 1. Spawn Player's 3D Character on floor plane at [0, 0, 0]
+      const playerInstance = createCharacterModel(custom);
+      playerModelRef.current = playerInstance;
+      playerInstance.group.position.set(0, 0, 0);
+      playerInstance.group.rotation.y = Math.PI / 4;
+      group.add(playerInstance.group);
 
-    // 2. Spawn Room NPC (Roommate Femi at [3, 0, -2] or location NPC)
-    const matchingNPC = CAMPUS_NPCS.find((n) => n.location === loc) || null;
-    currentNPCRef.current = matchingNPC;
+      // 2. Spawn Room NPC (Gender-based Roommate Femi/Zainab or location NPC, unless evicted)
+      let matchingNPC: CampusNPC | null = null;
+      if (loc === 'home_hostel') {
+        if (stats.roommateEvicted) {
+          // Roommate evicted: do not render in the room
+          matchingNPC = null;
+        } else {
+          const isFemale = stats.gender === 'female';
+          matchingNPC = CAMPUS_NPCS.find((n) => n.id === (isFemale ? 'npc_zainab' : 'npc_femi')) || null;
+        }
+      } else {
+        matchingNPC = CAMPUS_NPCS.find((n) => n.location === loc) || null;
+      }
 
-    if (matchingNPC) {
-      const npcInstance = createCharacterModel(matchingNPC.customization);
-      npcModelRef.current = npcInstance;
-      const isHostelRoom = loc === 'home_hostel' || matchingNPC.id === 'npc_femi';
-      const npcPos: [number, number, number] = isHostelRoom ? [3, 0, -2] : matchingNPC.position;
-      npcInstance.group.position.set(npcPos[0], 0, npcPos[2]);
-      npcInstance.group.rotation.y = matchingNPC.rotation;
-      group.add(npcInstance.group);
-    } else {
-      npcModelRef.current = null;
-    }
-  }, []);
+      currentNPCRef.current = matchingNPC;
+
+      if (matchingNPC) {
+        const npcInstance = createCharacterModel(matchingNPC.customization);
+        npcModelRef.current = npcInstance;
+        const isHostelRoom = loc === 'home_hostel' || matchingNPC.id === 'npc_femi' || matchingNPC.id === 'npc_zainab';
+        const npcPos: [number, number, number] = isHostelRoom ? [3, 0, -2] : matchingNPC.position;
+        npcInstance.group.position.set(npcPos[0], 0, npcPos[2]);
+        npcInstance.group.rotation.y = matchingNPC.rotation;
+        group.add(npcInstance.group);
+      } else {
+        npcModelRef.current = null;
+      }
+    },
+    [stats.roommateEvicted, stats.gender]
+  );
 
   // Reactive listeners for state updates
   useEffect(() => {
@@ -564,26 +579,31 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
         });
       }
 
-      // 2. Room NPC Badge (Roommate Femi at [3, 0, -2] or location NPC)
+      // 2. Room NPC Badge (Roommate at [3, 0, -2] or location NPC)
       const currentNPC = currentNPCRef.current;
       if (currentNPC) {
-        const isHostelRoom = currentLocation === 'home_hostel' || currentNPC.id === 'npc_femi';
-        const badgeX = isHostelRoom ? 3.0 : currentNPC.position[0];
-        const badgeZ = isHostelRoom ? -2.0 : currentNPC.position[2];
-        tempVec.set(badgeX, 3.4, badgeZ);
-        tempVec.project(camera);
-        if (tempVec.z <= 1.0) {
-          newBadges.push({
-            id: currentNPC.id,
-            label: currentNPC.name,
-            role: currentNPC.role,
-            icon: currentNPC.avatarIcon,
-            screenX: (tempVec.x * 0.5 + 0.5) * containerW,
-            screenY: (-tempVec.y * 0.5 + 0.5) * containerH,
-            visible: true,
-            isNPC: true,
-            npc: currentNPC,
-          });
+        const isHostelRoom =
+          currentLocation === 'home_hostel' ||
+          currentNPC.id === 'npc_femi' ||
+          currentNPC.id === 'npc_zainab';
+        if (!isHostelRoom || !stats.roommateEvicted) {
+          const badgeX = isHostelRoom ? 3.0 : currentNPC.position[0];
+          const badgeZ = isHostelRoom ? -2.0 : currentNPC.position[2];
+          tempVec.set(badgeX, 3.4, badgeZ);
+          tempVec.project(camera);
+          if (tempVec.z <= 1.0) {
+            newBadges.push({
+              id: currentNPC.id,
+              label: currentNPC.name,
+              role: currentNPC.role,
+              icon: currentNPC.avatarIcon,
+              screenX: (tempVec.x * 0.5 + 0.5) * containerW,
+              screenY: (-tempVec.y * 0.5 + 0.5) * containerH,
+              visible: true,
+              isNPC: true,
+              npc: currentNPC,
+            });
+          }
         }
       }
 
@@ -741,18 +761,23 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
           const gridX = Math.floor(targetPoint.x) + 0.5;
           const gridZ = Math.floor(targetPoint.z) + 0.5;
 
-          // Check if clicking near room NPC (Roommate Femi at [3, 0, -2] or location NPC)
+          // Check if clicking near room NPC (Roommate at [3, 0, -2] or location NPC)
           const currentNPC = currentNPCRef.current;
           if (currentNPC) {
-            const isHostelRoom = currentLocation === 'home_hostel' || currentNPC.id === 'npc_femi';
-            const targetNPCX = isHostelRoom ? 3.0 : currentNPC.position[0];
-            const targetNPCZ = isHostelRoom ? -2.0 : currentNPC.position[2];
-            if (
-              Math.abs(targetNPCX - gridX) < 1.0 &&
-              Math.abs(targetNPCZ - gridZ) < 1.0
-            ) {
-              setActiveDialogueNPC(currentNPC);
-              return;
+            const isHostelRoom =
+              currentLocation === 'home_hostel' ||
+              currentNPC.id === 'npc_femi' ||
+              currentNPC.id === 'npc_zainab';
+            if (!isHostelRoom || !stats.roommateEvicted) {
+              const targetNPCX = isHostelRoom ? 3.0 : currentNPC.position[0];
+              const targetNPCZ = isHostelRoom ? -2.0 : currentNPC.position[2];
+              if (
+                Math.abs(targetNPCX - gridX) < 1.0 &&
+                Math.abs(targetNPCZ - gridZ) < 1.0
+              ) {
+                setActiveDialogueNPC(currentNPC);
+                return;
+              }
             }
           }
 

@@ -139,8 +139,8 @@ export const CustomizeCharacterModal: React.FC = () => {
     scene.background = new THREE.Color('#f8fafc');
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(0, 1.8, 5.2);
-    camera.lookAt(0, 1.5, 0);
+    camera.position.set(0, 1.25, 3.6);
+    camera.lookAt(0, 1.05, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -150,10 +150,10 @@ export const CustomizeCharacterModal: React.FC = () => {
     container.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1.5, 0);
+    controls.target.set(0, 1.05, 0);
     controls.enablePan = false;
-    controls.minDistance = 3.5;
-    controls.maxDistance = 7.0;
+    controls.minDistance = 2.2;
+    controls.maxDistance = 5.5;
     controls.minPolarAngle = Math.PI / 4;
     controls.maxPolarAngle = Math.PI / 1.8;
     controls.autoRotate = true;
@@ -173,10 +173,10 @@ export const CustomizeCharacterModal: React.FC = () => {
     scene.add(rimLight);
 
     // Circular Display Turntable Pedestal
-    const pedGeo = new THREE.CylinderGeometry(1.2, 1.3, 0.2, 32);
+    const pedGeo = new THREE.CylinderGeometry(0.85, 0.95, 0.15, 32);
     const pedMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.3 });
     const pedestal = new THREE.Mesh(pedGeo, pedMat);
-    pedestal.position.y = -0.1;
+    pedestal.position.y = -0.08;
     pedestal.receiveShadow = true;
     scene.add(pedestal);
 

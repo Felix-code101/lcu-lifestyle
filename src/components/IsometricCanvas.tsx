@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useGame } from '../context/GameContext';
 import { createItemMesh } from './roomModelHelpers';
 import { createCharacterModel, type CharacterModelInstance } from './CharacterModel';
-import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS } from '../data/campusData';
+import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS, getDefaultHostelItems } from '../data/campusData';
 import { CAMPUS_NPCS } from '../data/npcData';
 import { TileInteractModal } from './TileInteractModal';
 import type { RoomItem, CampusNPC, GameLocation, CharacterCustomization, RemotePlayer } from '../types/game';
@@ -91,7 +91,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
   const npcModelRef = useRef<CharacterModelInstance | null>(null);
   const currentNPCRef = useRef<CampusNPC | null>(null);
 
-  // Sync 3D item meshes with guaranteed fallback defaults
+  // Sync 3D item meshes with gender-aware hostel room template fallback
   const syncItems = useCallback((items: RoomItem[], loc: GameLocation) => {
     if (!itemsGroupRef.current) return;
     const group = itemsGroupRef.current;
@@ -101,14 +101,24 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       group.remove(child);
     }
 
-    const fallbackList = DEFAULT_LOCATION_ITEMS[loc] || DEFAULT_LOCATION_ITEMS.home_hostel;
+    const isFemale =
+      stats.gender === 'female' ||
+      (stats.assignedHostel &&
+        (stats.assignedHostel.toLowerCase().includes('female') ||
+          stats.assignedHostel.toLowerCase().includes('queen') ||
+          stats.assignedHostel.toLowerCase().includes('ruby')));
+
+    const fallbackList =
+      loc === 'home_hostel'
+        ? getDefaultHostelItems(isFemale ? 'female' : 'male', stats.assignedHostel)
+        : (DEFAULT_LOCATION_ITEMS[loc] || DEFAULT_LOCATION_ITEMS.home_hostel);
     const listToRender = items && items.length > 0 ? items : fallbackList;
 
     listToRender.forEach((item) => {
       const mesh = createItemMesh(item);
       group.add(mesh);
     });
-  }, []);
+  }, [stats.gender, stats.assignedHostel]);
 
   // Sync Characters (Player at [0, 0, 0], Roommate NPC at [3, 0, -2])
   const syncCharacters = useCallback(
@@ -235,14 +245,14 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     });
   }, [remotePlayers]);
 
-  // Reset Camera smoothly to PerspectiveCamera [12, 14, 12] looking at [0, 1, 0]
+  // Reset Camera smoothly to PerspectiveCamera [12.5, 14.5, 12.5] looking at [0, 0.75, 0]
   useEffect(() => {
     if (resetCameraTrigger > 0 && cameraRef.current && controlsRef.current) {
       const camera = cameraRef.current;
       const controls = controlsRef.current;
-      camera.position.set(12, 14, 12);
-      controls.target.set(0, 1, 0);
-      camera.lookAt(0, 1, 0);
+      camera.position.set(12.5, 14.5, 12.5);
+      controls.target.set(0, 0.75, 0);
+      camera.lookAt(0, 0.75, 0);
       camera.updateProjectionMatrix();
       controls.update();
     }
@@ -300,11 +310,11 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     sceneRef.current = scene;
     scene.background = new THREE.Color('#ffffff');
 
-    // 2. First-person isometric PerspectiveCamera explicitly at [12, 14, 12] with fov: 45
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    // 2. First-person isometric PerspectiveCamera explicitly at [12.5, 14.5, 12.5] with fov: 40
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
     cameraRef.current = camera;
-    camera.position.set(12, 14, 12);
-    camera.lookAt(0, 1, 0);
+    camera.position.set(12.5, 14.5, 12.5);
+    camera.lookAt(0, 0.75, 0);
 
     // 3. Renderer with antialias and soft shadows
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -316,10 +326,10 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     renderer.toneMappingExposure = 1.05;
     container.appendChild(renderer.domElement);
 
-    // 4. OrbitControls with shallow isometric limits looking at [0, 1, 0]
+    // 4. OrbitControls with shallow isometric limits looking at [0, 0.75, 0]
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
-    controls.target.set(0, 1, 0);
+    controls.target.set(0, 0.75, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
     controls.minDistance = 6;

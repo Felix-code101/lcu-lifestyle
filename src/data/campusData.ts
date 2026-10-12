@@ -678,20 +678,46 @@ export const CAMPUS_LOCATIONS: CampusLocationInfo[] = [
   },
 ];
 
+export const DEFAULT_MALE_HOSTEL_ITEMS: RoomItem[] = [
+  { id: 'h_bunk_bed', name: 'Emerald Hall Bunk Bed', type: 'bunk_bed', x: -6.5, z: -3.5, rotation: 0, color: '#2563eb' },
+  { id: 'h_locker', name: 'Royal Blue Storage Locker', type: 'locker', x: -7.5, z: -7.5, rotation: 0, color: '#1d4ed8' },
+  { id: 'h_desk', name: 'Wooden Student Desk', type: 'desk', x: -2.5, z: -7.5, rotation: 0, color: '#ca8a04' },
+  { id: 'h_chair', name: 'Student Plastic Chair', type: 'chair', x: -2.5, z: -5.5, rotation: 0, color: '#1d4ed8' },
+  { id: 'h_laptop', name: 'Laptop & Textbooks', type: 'laptop_and_books', x: -3.2, z: -7.5, rotation: 0, color: '#0284c7' },
+  { id: 'h_fan', name: 'Desk Electric Fan', type: 'fan', x: -1.5, z: -7.5, rotation: 0, color: '#38bdf8' },
+  { id: 'h_bin', name: 'Plastic Waste Bin', type: 'waste_bin', x: -0.5, z: -7.5, rotation: 0, color: '#475569' },
+  { id: 'h_cooler', name: 'Blue Food Cooler', type: 'cooler', x: 2.5, z: -7.5, rotation: 0, color: '#1e40af' },
+  { id: 'h_water', name: 'Water Gallons & Bucket', type: 'water_gallon', x: 6.5, z: -7.5, rotation: 0, color: '#eab308' },
+  { id: 'h_plant', name: 'Hostel Potted Plant', type: 'plant', x: 6.5, z: 2.5, rotation: 0, color: '#22c55e' },
+  { id: 'h_lamp', name: 'Room Floor Lamp', type: 'lamp', x: 6.5, z: -2.5, rotation: 0, color: '#f97316' },
+];
+
+export const DEFAULT_FEMALE_HOSTEL_ITEMS: RoomItem[] = [
+  { id: 'h_bunk_bed', name: "Queen's Hall Single Bunk Bed", type: 'bunk_bed', x: -6.5, z: -3.5, rotation: 0, color: '#ec4899' },
+  { id: 'h_locker', name: 'Rose Pink Storage Locker', type: 'locker', x: -7.5, z: -7.5, rotation: 0, color: '#db2777' },
+  { id: 'h_desk', name: 'Wooden Study Desk', type: 'desk', x: -2.5, z: -7.5, rotation: 0, color: '#ca8a04' },
+  { id: 'h_chair', name: 'Velvet Study Chair', type: 'chair', x: -2.5, z: -5.5, rotation: 0, color: '#be185d' },
+  { id: 'h_laptop', name: 'Laptop & Study Slides', type: 'laptop_and_books', x: -3.2, z: -7.5, rotation: 0, color: '#f43f5e' },
+  { id: 'h_fan', name: 'Pastel Desk Fan', type: 'fan', x: -1.5, z: -7.5, rotation: 0, color: '#f472b6' },
+  { id: 'h_bin', name: 'Hostel Waste Bin', type: 'waste_bin', x: -0.5, z: -7.5, rotation: 0, color: '#475569' },
+  { id: 'h_cooler', name: 'Burgundy Food Cooler', type: 'cooler', x: 2.5, z: -7.5, rotation: 0, color: '#9d174d' },
+  { id: 'h_water', name: 'Water Gallons & Bucket', type: 'water_gallon', x: 6.5, z: -7.5, rotation: 0, color: '#eab308' },
+  { id: 'h_plant', name: 'Potted Succulent Plant', type: 'plant', x: 6.5, z: 2.5, rotation: 0, color: '#10b981' },
+  { id: 'h_lamp', name: 'Warm Cozy Floor Lamp', type: 'lamp', x: 6.5, z: -2.5, rotation: 0, color: '#fb7185' },
+];
+
+export const getDefaultHostelItems = (gender?: string, assignedHostel?: string): RoomItem[] => {
+  const isFemale =
+    gender === 'female' ||
+    (assignedHostel &&
+      (assignedHostel.toLowerCase().includes('female') ||
+        assignedHostel.toLowerCase().includes('queen') ||
+        assignedHostel.toLowerCase().includes('ruby')));
+  return isFemale ? DEFAULT_FEMALE_HOSTEL_ITEMS : DEFAULT_MALE_HOSTEL_ITEMS;
+};
+
 export const DEFAULT_LOCATION_ITEMS: Record<GameLocation, RoomItem[]> = {
-  home_hostel: [
-    { id: 'h_bunk_bed', name: 'Hostel Single Bunk Bed', type: 'bunk_bed', x: -6.5, z: -3.5, rotation: 0, color: '#2563eb' },
-    { id: 'h_locker', name: 'Blue Storage Locker', type: 'locker', x: -7.5, z: -7.5, rotation: 0, color: '#1d4ed8' },
-    { id: 'h_desk', name: 'Wooden Student Desk', type: 'desk', x: -2.5, z: -7.5, rotation: 0, color: '#ca8a04' },
-    { id: 'h_chair', name: 'Student Plastic Chair', type: 'chair', x: -2.5, z: -5.5, rotation: 0, color: '#1d4ed8' },
-    { id: 'h_laptop', name: 'Laptop & Textbooks', type: 'laptop_and_books', x: -3.2, z: -7.5, rotation: 0, color: '#0284c7' },
-    { id: 'h_fan', name: 'Desk Electric Fan', type: 'fan', x: -1.5, z: -7.5, rotation: 0, color: '#38bdf8' },
-    { id: 'h_bin', name: 'Plastic Waste Bin', type: 'waste_bin', x: -0.5, z: -7.5, rotation: 0, color: '#475569' },
-    { id: 'h_cooler', name: 'Blue Food Cooler', type: 'cooler', x: 2.5, z: -7.5, rotation: 0, color: '#1e40af' },
-    { id: 'h_water', name: 'Water Gallons & Bucket', type: 'water_gallon', x: 6.5, z: -7.5, rotation: 0, color: '#eab308' },
-    { id: 'h_plant', name: 'Hostel Potted Plant', type: 'plant', x: 6.5, z: 2.5, rotation: 0, color: '#22c55e' },
-    { id: 'h_lamp', name: 'Room Floor Lamp', type: 'lamp', x: 6.5, z: -2.5, rotation: 0, color: '#f97316' },
-  ],
+  home_hostel: DEFAULT_MALE_HOSTEL_ITEMS,
 
   lecture_theatre: [
     // Whiteboard at the front

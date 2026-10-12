@@ -165,6 +165,9 @@ export interface CharacterModelInstance {
  */
 export function createCharacterModel(initialConfig?: Partial<CharacterCustomization> | null): CharacterModelInstance {
   const root = new THREE.Group();
+  // Scale down character mesh by 35% so student fits cleanly inside hostel rooms and campus walkways
+  root.scale.set(0.65, 0.65, 0.65);
+
   let currentConfig = sanitizeCustomization(initialConfig);
   let isWalking = false;
   let walkPhase = 0;
@@ -237,14 +240,14 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
       shirtMat = mat(cfg.shirtColor, 0.55, 0.05);
     }
 
-    // 1 & 2. Legs, Shoes & Feet attached to Hip Pivots for natural walk animation
-    const shoeGeo = new THREE.BoxGeometry(0.28, 0.2, 0.46);
-    const soleGeo = new THREE.BoxGeometry(0.29, 0.06, 0.48);
-    const legGeo = new THREE.BoxGeometry(0.24, 0.82, 0.28);
+    // 1 & 2. Legs, Shoes & Feet attached to Hip Pivots (Slender Cylindrical Proportions)
+    const legGeo = new THREE.CylinderGeometry(0.105, 0.085, 0.82, 14);
+    const shoeGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.42, 14);
+    const soleGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.44, 14);
 
     // Left Leg Group
     const lLegPivot = new THREE.Group();
-    lLegPivot.position.set(-0.22, 1.0, 0);
+    lLegPivot.position.set(-0.20, 1.0, 0);
     leftLegGroup = lLegPivot;
 
     const leftLeg = new THREE.Mesh(legGeo, pantsMat);
@@ -253,19 +256,23 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
     lLegPivot.add(leftLeg);
 
     const leftShoe = new THREE.Mesh(shoeGeo, shoesMat);
-    leftShoe.position.set(0, -0.9, 0.04);
+    leftShoe.rotation.x = Math.PI / 2;
+    leftShoe.scale.set(1.0, 0.8, 0.65);
+    leftShoe.position.set(0, -0.88, 0.07);
     leftShoe.castShadow = true;
     lLegPivot.add(leftShoe);
 
     const leftSole = new THREE.Mesh(soleGeo, whiteSoleMat);
-    leftSole.position.set(0, -0.97, 0.04);
+    leftSole.rotation.x = Math.PI / 2;
+    leftSole.scale.set(1.02, 0.82, 0.25);
+    leftSole.position.set(0, -0.95, 0.07);
     lLegPivot.add(leftSole);
 
     bodyGroup.add(lLegPivot);
 
     // Right Leg Group
     const rLegPivot = new THREE.Group();
-    rLegPivot.position.set(0.22, 1.0, 0);
+    rLegPivot.position.set(0.20, 1.0, 0);
     rightLegGroup = rLegPivot;
 
     const rightLeg = new THREE.Mesh(legGeo, pantsMat);
@@ -274,77 +281,88 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
     rLegPivot.add(rightLeg);
 
     const rightShoe = new THREE.Mesh(shoeGeo, shoesMat);
-    rightShoe.position.set(0, -0.9, 0.04);
+    rightShoe.rotation.x = Math.PI / 2;
+    rightShoe.scale.set(1.0, 0.8, 0.65);
+    rightShoe.position.set(0, -0.88, 0.07);
     rightShoe.castShadow = true;
     rLegPivot.add(rightShoe);
 
     const rightSole = new THREE.Mesh(soleGeo, whiteSoleMat);
-    rightSole.position.set(0, -0.97, 0.04);
+    rightSole.rotation.x = Math.PI / 2;
+    rightSole.scale.set(1.02, 0.82, 0.25);
+    rightSole.position.set(0, -0.95, 0.07);
     rLegPivot.add(rightSole);
 
     bodyGroup.add(rLegPivot);
 
-    // Pelvis / Hips
-    const hipGeo = new THREE.BoxGeometry(0.72, 0.22, 0.36);
+    // Pelvis / Hips (Smooth Tapered Contours)
+    const hipGeo = new THREE.CylinderGeometry(0.30, 0.26, 0.22, 18);
     const hip = new THREE.Mesh(hipGeo, pantsMat);
+    hip.scale.set(1.18, 1.0, 0.72);
     hip.position.set(0, 1.05, 0);
     hip.castShadow = true;
     bodyGroup.add(hip);
 
     // Belt & Gold Buckle
-    const beltGeo = new THREE.BoxGeometry(0.73, 0.06, 0.37);
+    const beltGeo = new THREE.CylinderGeometry(0.31, 0.30, 0.06, 18);
     const belt = new THREE.Mesh(beltGeo, mat('#1e293b', 0.4));
+    belt.scale.set(1.19, 1.0, 0.73);
     belt.position.set(0, 1.13, 0);
     bodyGroup.add(belt);
 
-    const buckleGeo = new THREE.BoxGeometry(0.12, 0.08, 0.03);
+    const buckleGeo = new THREE.BoxGeometry(0.10, 0.07, 0.03);
     const buckle = new THREE.Mesh(buckleGeo, mat('#facc15', 0.2, 0.8));
-    buckle.position.set(0, 1.13, 0.19);
+    buckle.position.set(0, 1.13, 0.21);
     bodyGroup.add(buckle);
 
-    // 3. Torso / Shirt
-    const torsoGeo = new THREE.BoxGeometry(0.82, 0.94, 0.42);
+    // 3. Torso / Shirt (Tapered Collegiate Cylinder)
+    const torsoGeo = new THREE.CylinderGeometry(0.34, 0.29, 0.94, 18);
     const torso = new THREE.Mesh(torsoGeo, shirtMat);
+    torso.scale.set(1.22, 1.0, 0.68);
     torso.position.set(0, 1.63, 0);
     torso.castShadow = true;
     torso.receiveShadow = true;
     bodyGroup.add(torso);
 
-    // Optional flowing lower robe extension for Jalabiya or Pastor Cassock
+    // Flowing lower robe extension for Jalabiya or Pastor Cassock
     if (cfg.shirtPattern === 'jalabiya_robe' || cfg.shirtPattern === 'pastor_vestment') {
-      const robeLowerGeo = new THREE.BoxGeometry(0.78, 0.62, 0.44);
+      const robeLowerGeo = new THREE.CylinderGeometry(0.31, 0.40, 0.64, 18);
       const robeLower = new THREE.Mesh(robeLowerGeo, shirtMat);
+      robeLower.scale.set(1.2, 1.0, 0.72);
       robeLower.position.set(0, 0.88, 0);
       robeLower.castShadow = true;
       bodyGroup.add(robeLower);
     }
 
     // Clean Shirt Collar
-    const collarGeo = new THREE.BoxGeometry(0.36, 0.06, 0.43);
+    const collarGeo = new THREE.CylinderGeometry(0.18, 0.20, 0.08, 16);
     const collar = new THREE.Mesh(collarGeo, mat('#f8fafc', 0.4));
+    collar.scale.set(1.15, 1.0, 0.85);
     collar.position.set(0, 2.08, 0);
     bodyGroup.add(collar);
 
-    // 4. Arms & Hands
+    // 4. Arms & Hands (Slender Cylindrical Joints)
+    const sleeveGeo = new THREE.CylinderGeometry(0.10, 0.09, 0.36, 14);
+    const forearmGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.38, 14);
+    const handGeo = new THREE.SphereGeometry(0.075, 12, 10);
+
     // Left Arm Hierarchy
     const lArm = new THREE.Group();
-    lArm.position.set(-0.48, 1.95, 0);
+    lArm.position.set(-0.44, 1.95, 0);
     leftArmGroup = lArm;
 
-    const sleeveGeo = new THREE.BoxGeometry(0.2, 0.36, 0.22);
     const lSleeve = new THREE.Mesh(sleeveGeo, shirtMat);
     lSleeve.position.set(0, -0.18, 0);
     lSleeve.castShadow = true;
     lArm.add(lSleeve);
 
-    const forearmGeo = new THREE.BoxGeometry(0.16, 0.38, 0.18);
     const lForearm = new THREE.Mesh(forearmGeo, skinMat);
-    lForearm.position.set(0, -0.5, 0);
+    lForearm.position.set(0, -0.50, 0);
     lForearm.castShadow = true;
     lArm.add(lForearm);
 
-    const handGeo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
     const lHand = new THREE.Mesh(handGeo, skinMat);
+    lHand.scale.set(0.85, 1.1, 0.9);
     lHand.position.set(0, -0.72, 0);
     lHand.castShadow = true;
     lArm.add(lHand);
@@ -353,7 +371,7 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
 
     // Right Arm Hierarchy
     const rArm = new THREE.Group();
-    rArm.position.set(0.48, 1.95, 0);
+    rArm.position.set(0.44, 1.95, 0);
     rightArmGroup = rArm;
 
     const rSleeve = new THREE.Mesh(sleeveGeo, shirtMat);
@@ -362,26 +380,28 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
     rArm.add(rSleeve);
 
     const rForearm = new THREE.Mesh(forearmGeo, skinMat);
-    rForearm.position.set(0, -0.5, 0);
+    rForearm.position.set(0, -0.50, 0);
     rForearm.castShadow = true;
     rArm.add(rForearm);
 
     const rHand = new THREE.Mesh(handGeo, skinMat);
+    rHand.scale.set(0.85, 1.1, 0.9);
     rHand.position.set(0, -0.72, 0);
     rHand.castShadow = true;
     rArm.add(rHand);
 
     bodyGroup.add(rArm);
 
-    // 5. Neck
-    const neckGeo = new THREE.BoxGeometry(0.22, 0.16, 0.22);
+    // 5. Neck - Smooth slender cylinder
+    const neckGeo = new THREE.CylinderGeometry(0.11, 0.13, 0.22, 16);
     const neck = new THREE.Mesh(neckGeo, skinMat);
     neck.position.set(0, 2.15, 0);
     bodyGroup.add(neck);
 
-    // 6. Head & Stylized Facial Features
-    const headGeo = new THREE.BoxGeometry(0.74, 0.74, 0.68);
+    // 6. Head & Stylized Facial Features (Streamlined Humanoid Sphere)
+    const headGeo = new THREE.SphereGeometry(0.38, 24, 20);
     const head = new THREE.Mesh(headGeo, skinMat);
+    head.scale.set(1.0, 1.08, 0.98);
     head.position.set(0, 2.58, 0);
     head.castShadow = true;
     bodyGroup.add(head);
@@ -389,103 +409,114 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
     // Stylized Cute Eyes
     const eyeMat = mat('#0f172a', 0.2);
     const eyeHighlightMat = mat('#ffffff', 0.1);
-    const eyeGeo = new THREE.BoxGeometry(0.09, 0.12, 0.04);
-    const eyeHighGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+    const eyeGeo = new THREE.SphereGeometry(0.045, 12, 12);
+    const eyeHighGeo = new THREE.SphereGeometry(0.018, 8, 8);
 
     // Left Eye
     const lEye = new THREE.Mesh(eyeGeo, eyeMat);
-    lEye.position.set(-0.18, 2.62, 0.35);
+    lEye.scale.set(0.9, 1.15, 0.4);
+    lEye.position.set(-0.14, 2.62, 0.35);
     bodyGroup.add(lEye);
 
     const lHigh = new THREE.Mesh(eyeHighGeo, eyeHighlightMat);
-    lHigh.position.set(-0.16, 2.65, 0.36);
+    lHigh.position.set(-0.125, 2.65, 0.375);
     bodyGroup.add(lHigh);
 
     // Right Eye
     const rEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rEye.position.set(0.18, 2.62, 0.35);
+    rEye.scale.set(0.9, 1.15, 0.4);
+    rEye.position.set(0.14, 2.62, 0.35);
     bodyGroup.add(rEye);
 
     const rHigh = new THREE.Mesh(eyeHighGeo, eyeHighlightMat);
-    rHigh.position.set(0.16, 2.65, 0.36);
+    rHigh.position.set(0.155, 2.65, 0.375);
     bodyGroup.add(rHigh);
 
     // Subtle Friendly Smile
-    const mouthGeo = new THREE.BoxGeometry(0.18, 0.04, 0.03);
+    const mouthGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.02, 12);
     const mouthMat = mat('#451a03', 0.5);
     const mouth = new THREE.Mesh(mouthGeo, mouthMat);
-    mouth.position.set(0, 2.4, 0.35);
+    mouth.rotation.x = Math.PI / 2;
+    mouth.scale.set(1.0, 0.4, 0.4);
+    mouth.position.set(0, 2.42, 0.37);
     bodyGroup.add(mouth);
 
     // Stylized Ears
-    const earGeo = new THREE.BoxGeometry(0.08, 0.16, 0.12);
+    const earGeo = new THREE.SphereGeometry(0.075, 12, 10);
     const lEar = new THREE.Mesh(earGeo, skinMat);
-    lEar.position.set(-0.39, 2.58, 0);
+    lEar.scale.set(0.4, 1.0, 0.6);
+    lEar.position.set(-0.38, 2.58, -0.02);
     bodyGroup.add(lEar);
 
     const rEar = new THREE.Mesh(earGeo, skinMat);
-    rEar.position.set(0.39, 2.58, 0);
+    rEar.scale.set(0.4, 1.0, 0.6);
+    rEar.position.set(0.38, 2.58, -0.02);
     bodyGroup.add(rEar);
 
-    // 7. Hair Styles
+    // 7. Hair Styles conforming to rounded skull
     switch (cfg.hairStyle) {
       case 'short': {
-        const hairTopGeo = new THREE.BoxGeometry(0.76, 0.22, 0.7);
-        const hairTop = new THREE.Mesh(hairTopGeo, hairMat);
-        hairTop.position.set(0, 2.96, -0.02);
-        bodyGroup.add(hairTop);
+        const hairGeo = new THREE.SphereGeometry(0.395, 20, 16);
+        const hair = new THREE.Mesh(hairGeo, hairMat);
+        hair.scale.set(1.02, 1.04, 1.02);
+        hair.position.set(0, 2.64, -0.02);
+        bodyGroup.add(hair);
         break;
       }
 
       case 'afro': {
-        // Voluminous rounded cuboid afro puff
-        const afroGeo = new THREE.BoxGeometry(0.9, 0.45, 0.84);
+        const afroGeo = new THREE.SphereGeometry(0.48, 20, 18);
         const afro = new THREE.Mesh(afroGeo, hairMat);
-        afro.position.set(0, 3.02, -0.04);
+        afro.position.set(0, 2.78, -0.02);
         afro.castShadow = true;
         bodyGroup.add(afro);
 
-        const afroSideL = new THREE.BoxGeometry(0.15, 0.4, 0.7);
-        const sL = new THREE.Mesh(afroSideL, hairMat);
-        sL.position.set(-0.44, 2.75, -0.04);
-        bodyGroup.add(sL);
+        const puffGeo = new THREE.SphereGeometry(0.24, 14, 12);
+        const pL = new THREE.Mesh(puffGeo, hairMat);
+        pL.position.set(-0.35, 2.70, -0.02);
+        bodyGroup.add(pL);
 
-        const sR = new THREE.Mesh(afroSideL, hairMat);
-        sR.position.set(0.44, 2.75, -0.04);
-        bodyGroup.add(sR);
+        const pR = new THREE.Mesh(puffGeo, hairMat);
+        pR.position.set(0.35, 2.70, -0.02);
+        bodyGroup.add(pR);
         break;
       }
 
       case 'fade': {
-        // High-top textured fade
-        const fadeGeo = new THREE.BoxGeometry(0.76, 0.36, 0.7);
-        const fade = new THREE.Mesh(fadeGeo, hairMat);
-        fade.position.set(0, 3.0, -0.02);
+        const fadeCapGeo = new THREE.CylinderGeometry(0.36, 0.38, 0.30, 20);
+        const fade = new THREE.Mesh(fadeCapGeo, hairMat);
+        fade.position.set(0, 2.82, -0.02);
         fade.castShadow = true;
         bodyGroup.add(fade);
+
+        const fadeTopGeo = new THREE.SphereGeometry(0.36, 20, 12);
+        const fadeTop = new THREE.Mesh(fadeTopGeo, hairMat);
+        fadeTop.scale.set(1.0, 0.5, 1.0);
+        fadeTop.position.set(0, 2.95, -0.02);
+        bodyGroup.add(fadeTop);
         break;
       }
 
       case 'dreads': {
-        // High cluster dreadlocks with dangling locs
-        const topGeo = new THREE.BoxGeometry(0.78, 0.28, 0.72);
+        const topGeo = new THREE.SphereGeometry(0.42, 20, 16);
         const topDreads = new THREE.Mesh(topGeo, hairMat);
-        topDreads.position.set(0, 2.98, -0.04);
+        topDreads.scale.set(1.02, 0.8, 1.02);
+        topDreads.position.set(0, 2.75, -0.02);
         bodyGroup.add(topDreads);
 
-        // Hanging dread locs with golden rings
-        const locGeo = new THREE.BoxGeometry(0.12, 0.55, 0.12);
-        const ringGeo = new THREE.BoxGeometry(0.14, 0.05, 0.14);
+        const locGeo = new THREE.CylinderGeometry(0.045, 0.04, 0.55, 8);
+        const ringGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.05, 8);
         const goldMat = mat('#facc15', 0.2, 0.8);
 
-        [-0.32, 0.32, -0.15, 0.15].forEach((lx, idx) => {
+        [-0.26, 0.26, -0.12, 0.12].forEach((lx, idx) => {
           const loc = new THREE.Mesh(locGeo, hairMat);
-          loc.position.set(lx, 2.65, -0.32);
+          loc.position.set(lx, 2.50, -0.26);
+          loc.rotation.z = lx * -0.2;
           bodyGroup.add(loc);
 
           if (idx % 2 === 0) {
             const ring = new THREE.Mesh(ringGeo, goldMat);
-            ring.position.set(lx, 2.5, -0.32);
+            ring.position.set(lx, 2.38, -0.26);
             bodyGroup.add(ring);
           }
         });
@@ -493,93 +524,85 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
       }
 
       case 'braids': {
-        // Braided cornrow rows on scalp
-        for (let r = -2; r <= 2; r++) {
-          const rowGeo = new THREE.BoxGeometry(0.1, 0.14, 0.72);
-          const row = new THREE.Mesh(rowGeo, hairMat);
-          row.position.set(r * 0.14, 2.96, -0.02);
-          bodyGroup.add(row);
-        }
+        const scalpGeo = new THREE.SphereGeometry(0.395, 20, 16);
+        const scalp = new THREE.Mesh(scalpGeo, hairMat);
+        scalp.scale.set(1.01, 1.02, 1.01);
+        scalp.position.set(0, 2.62, -0.02);
+        bodyGroup.add(scalp);
 
-        // Hanging braids for female or long styles
-        const hangingBraidsGeo = new THREE.BoxGeometry(0.09, 0.6, 0.09);
-        [-0.34, 0.34, -0.22, 0.22].forEach((bx) => {
-          const bMesh = new THREE.Mesh(hangingBraidsGeo, hairMat);
-          bMesh.position.set(bx, 2.62, -0.15);
+        const braidGeo = new THREE.CylinderGeometry(0.035, 0.03, 0.62, 8);
+        [-0.28, 0.28, -0.16, 0.16].forEach((bx) => {
+          const bMesh = new THREE.Mesh(braidGeo, hairMat);
+          bMesh.position.set(bx, 2.45, -0.14);
+          bMesh.rotation.z = bx * -0.15;
           bodyGroup.add(bMesh);
         });
         break;
       }
 
       case 'bob': {
-        // Sleek feminine bob haircut
-        const bobTopGeo = new THREE.BoxGeometry(0.82, 0.26, 0.76);
-        const bobTop = new THREE.Mesh(bobTopGeo, hairMat);
-        bobTop.position.set(0, 2.98, -0.02);
+        const bobCapGeo = new THREE.SphereGeometry(0.42, 20, 16);
+        const bobTop = new THREE.Mesh(bobCapGeo, hairMat);
+        bobTop.scale.set(1.04, 1.02, 1.04);
+        bobTop.position.set(0, 2.66, -0.02);
         bodyGroup.add(bobTop);
 
-        const bobSideGeo = new THREE.BoxGeometry(0.12, 0.58, 0.68);
-        const bL = new THREE.Mesh(bobSideGeo, hairMat);
-        bL.position.set(-0.42, 2.68, 0);
+        const sideGeo = new THREE.CylinderGeometry(0.12, 0.10, 0.52, 12);
+        const bL = new THREE.Mesh(sideGeo, hairMat);
+        bL.scale.set(0.6, 1.0, 1.2);
+        bL.position.set(-0.35, 2.50, 0);
         bodyGroup.add(bL);
 
-        const bR = new THREE.Mesh(bobSideGeo, hairMat);
-        bR.position.set(0.42, 2.68, 0);
+        const bR = new THREE.Mesh(sideGeo, hairMat);
+        bR.scale.set(0.6, 1.0, 1.2);
+        bR.position.set(0.35, 2.50, 0);
         bodyGroup.add(bR);
-
-        const bobBackGeo = new THREE.BoxGeometry(0.76, 0.52, 0.12);
-        const bBack = new THREE.Mesh(bobBackGeo, hairMat);
-        bBack.position.set(0, 2.7, -0.34);
-        bodyGroup.add(bBack);
         break;
       }
 
       case 'ponytail': {
-        // High ponytail style
-        const pTopGeo = new THREE.BoxGeometry(0.78, 0.25, 0.72);
-        const pTop = new THREE.Mesh(pTopGeo, hairMat);
-        pTop.position.set(0, 2.97, -0.02);
+        const pCapGeo = new THREE.SphereGeometry(0.40, 20, 16);
+        const pTop = new THREE.Mesh(pCapGeo, hairMat);
+        pTop.scale.set(1.02, 1.02, 1.02);
+        pTop.position.set(0, 2.64, -0.02);
         bodyGroup.add(pTop);
 
-        // Gold / vibrant hair band
-        const tieGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.06, 8);
+        const tieGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.06, 12);
         const tieMat = mat('#facc15', 0.2, 0.8);
         const tie = new THREE.Mesh(tieGeo, tieMat);
         tie.rotation.x = Math.PI / 2;
-        tie.position.set(0, 2.95, -0.38);
+        tie.position.set(0, 2.82, -0.36);
         bodyGroup.add(tie);
 
-        // Hanging ponytail bunch
-        const tailGeo = new THREE.BoxGeometry(0.18, 0.62, 0.16);
+        const tailGeo = new THREE.CylinderGeometry(0.08, 0.05, 0.60, 12);
         const tail = new THREE.Mesh(tailGeo, hairMat);
-        tail.rotation.x = 0.15;
-        tail.position.set(0, 2.58, -0.44);
+        tail.rotation.x = 0.2;
+        tail.position.set(0, 2.52, -0.42);
         bodyGroup.add(tail);
         break;
       }
 
       case 'gele': {
-        // Traditional Nigerian Gele Headwrap
-        const geleMat = mat('#d97706', 0.3, 0.4); // Royal Ochre Gold Gele
-        const wrapBaseGeo = new THREE.CylinderGeometry(0.46, 0.44, 0.32, 12);
+        const geleMat = mat('#d97706', 0.3, 0.4);
+        const wrapBaseGeo = new THREE.CylinderGeometry(0.42, 0.40, 0.28, 16);
         const wrapBase = new THREE.Mesh(wrapBaseGeo, geleMat);
-        wrapBase.position.set(0, 3.02, 0);
+        wrapBase.position.set(0, 2.88, 0);
         bodyGroup.add(wrapBase);
 
-        // Gele Fan Crest
-        const fanGeo = new THREE.BoxGeometry(0.96, 0.24, 0.38);
+        const fanGeo = new THREE.CylinderGeometry(0.55, 0.45, 0.20, 16);
         const fan = new THREE.Mesh(fanGeo, geleMat);
-        fan.position.set(0, 3.22, 0.04);
-        fan.rotation.x = -0.2;
+        fan.scale.set(1.2, 1.0, 0.6);
+        fan.position.set(0, 3.08, 0.02);
+        fan.rotation.x = -0.15;
         bodyGroup.add(fan);
         break;
       }
 
       case 'waves': {
-        // 360 wave cuts
-        const waveGeo = new THREE.BoxGeometry(0.76, 0.2, 0.7);
+        const waveGeo = new THREE.SphereGeometry(0.395, 20, 16);
         const waves = new THREE.Mesh(waveGeo, hairMat);
-        waves.position.set(0, 2.95, -0.02);
+        waves.scale.set(1.02, 1.03, 1.02);
+        waves.position.set(0, 2.63, -0.02);
         bodyGroup.add(waves);
         break;
       }
@@ -589,11 +612,10 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
         break;
     }
 
-    // 8. Accessories (Crown, Cap, Glasses)
+    // 8. Accessories (Crown, Cap, Glasses, Robes)
     if (cfg.accessory === 'crown') {
-      // Golden Floating 5-Point Royal Crown with Jewels (image_22.png reference)
       const crown = new THREE.Group();
-      crown.position.set(0, 3.3, 0);
+      crown.position.set(0, 3.25, 0);
 
       const crownGoldMat = new THREE.MeshStandardMaterial({
         color: '#facc15',
@@ -603,51 +625,46 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
         emissiveIntensity: 0.25,
       });
 
-      // Crown Ring Base
-      const cBaseGeo = new THREE.CylinderGeometry(0.32, 0.34, 0.12, 16);
+      const cBaseGeo = new THREE.CylinderGeometry(0.30, 0.32, 0.10, 16);
       const cBase = new THREE.Mesh(cBaseGeo, crownGoldMat);
       crown.add(cBase);
 
-      // 5 Crown Triangular Points
       const pointMat = crownGoldMat;
-      const pointGeo = new THREE.ConeGeometry(0.08, 0.22, 4);
-      const jewelGeo = new THREE.SphereGeometry(0.04, 8, 8);
+      const pointGeo = new THREE.ConeGeometry(0.07, 0.20, 4);
+      const jewelGeo = new THREE.SphereGeometry(0.035, 8, 8);
       const rubyMat = mat('#dc2626', 0.1, 0.5);
       const emeraldMat = mat('#16a34a', 0.1, 0.5);
 
       for (let p = 0; p < 5; p++) {
         const angle = (p * (2 * Math.PI)) / 5;
-        const px = Math.sin(angle) * 0.31;
-        const pz = Math.cos(angle) * 0.31;
+        const px = Math.sin(angle) * 0.29;
+        const pz = Math.cos(angle) * 0.29;
 
         const tip = new THREE.Mesh(pointGeo, pointMat);
-        tip.position.set(px, 0.14, pz);
+        tip.position.set(px, 0.12, pz);
         crown.add(tip);
 
-        // Gem on tip
         const gem = new THREE.Mesh(jewelGeo, p % 2 === 0 ? rubyMat : emeraldMat);
-        gem.position.set(px, 0.25, pz);
+        gem.position.set(px, 0.22, pz);
         crown.add(gem);
       }
 
       crownMesh = crown;
       bodyGroup.add(crown);
     } else if (cfg.accessory === 'cap') {
-      // Varsity baseball cap / student cap
       const capMat = mat('#1d4ed8', 0.5);
-      const capDomeGeo = new THREE.BoxGeometry(0.78, 0.24, 0.74);
+      const capDomeGeo = new THREE.SphereGeometry(0.41, 20, 14);
       const capDome = new THREE.Mesh(capDomeGeo, capMat);
-      capDome.position.set(0, 2.96, 0.02);
+      capDome.scale.set(1.02, 0.9, 1.02);
+      capDome.position.set(0, 2.70, 0.02);
       bodyGroup.add(capDome);
 
-      // Visor / Brim sticking forward
-      const visorGeo = new THREE.BoxGeometry(0.68, 0.05, 0.35);
+      const visorGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.04, 16, 1, false, 0, Math.PI);
       const visor = new THREE.Mesh(visorGeo, capMat);
-      visor.position.set(0, 2.88, 0.42);
-      visor.rotation.x = 0.12;
+      visor.position.set(0, 2.64, 0.32);
+      visor.rotation.x = 0.14;
       bodyGroup.add(visor);
     } else if (cfg.accessory === 'glasses') {
-      // Wire-frame stylish glasses
       const frameMat = mat('#0f172a', 0.2, 0.8);
       const glassMat = new THREE.MeshStandardMaterial({
         color: '#38bdf8',
@@ -657,82 +674,75 @@ export function createCharacterModel(initialConfig?: Partial<CharacterCustomizat
         opacity: 0.6,
       });
 
-      const lensGeo = new THREE.BoxGeometry(0.22, 0.16, 0.02);
+      const lensGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16);
 
-      // Left Lens
       const lLens = new THREE.Mesh(lensGeo, glassMat);
-      lLens.position.set(-0.18, 2.62, 0.38);
+      lLens.rotation.x = Math.PI / 2;
+      lLens.position.set(-0.15, 2.62, 0.37);
       bodyGroup.add(lLens);
 
-      // Right Lens
       const rLens = new THREE.Mesh(lensGeo, glassMat);
-      rLens.position.set(0.18, 2.62, 0.38);
+      rLens.rotation.x = Math.PI / 2;
+      rLens.position.set(0.15, 2.62, 0.37);
       bodyGroup.add(rLens);
 
-      // Bridge
-      const bridgeGeo = new THREE.BoxGeometry(0.12, 0.03, 0.03);
+      const bridgeGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.12, 8);
       const bridge = new THREE.Mesh(bridgeGeo, frameMat);
-      bridge.position.set(0, 2.64, 0.38);
+      bridge.rotation.z = Math.PI / 2;
+      bridge.position.set(0, 2.63, 0.38);
       bodyGroup.add(bridge);
     } else if (cfg.accessory === 'pastor_collar') {
-      // Clerical collar band around neck
-      const collarBandGeo = new THREE.BoxGeometry(0.24, 0.07, 0.24);
+      const collarBandGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.07, 16);
       const collarBand = new THREE.Mesh(collarBandGeo, mat('#09090b', 0.3));
       collarBand.position.set(0, 2.14, 0);
       bodyGroup.add(collarBand);
 
-      // White clerical insert tab in front
-      const tabGeo = new THREE.BoxGeometry(0.08, 0.06, 0.02);
+      const tabGeo = new THREE.BoxGeometry(0.07, 0.05, 0.02);
       const tabMesh = new THREE.Mesh(tabGeo, mat('#ffffff', 0.2));
-      tabMesh.position.set(0, 2.14, 0.12);
+      tabMesh.position.set(0, 2.14, 0.13);
       bodyGroup.add(tabMesh);
 
-      // Hanging gold cross
       const crossMesh = new THREE.Group();
       crossMesh.position.set(0, 1.76, 0.22);
       const crossGoldMat = mat('#facc15', 0.2, 0.85);
-      const crossVert = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.02), crossGoldMat);
-      const crossHoriz = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 0.02), crossGoldMat);
+      const crossVert = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.15, 0.02), crossGoldMat);
+      const crossHoriz = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.035, 0.02), crossGoldMat);
       crossHoriz.position.set(0, 0.03, 0);
       crossMesh.add(crossVert);
       crossMesh.add(crossHoriz);
       bodyGroup.add(crossMesh);
     } else if (cfg.accessory === 'alfa_cap') {
-      // Authentic Islamic Kufi cap
-      const capGeo = new THREE.CylinderGeometry(0.38, 0.40, 0.24, 16);
+      const capGeo = new THREE.CylinderGeometry(0.36, 0.38, 0.22, 18);
       const capMat = mat('#f8fafc', 0.6);
       const alfaCap = new THREE.Mesh(capGeo, capMat);
-      alfaCap.position.set(0, 3.0, -0.02);
+      alfaCap.position.set(0, 2.94, -0.02);
       alfaCap.castShadow = true;
       bodyGroup.add(alfaCap);
 
-      // Golden embroidery rim at base of kufi
-      const rimGeo = new THREE.CylinderGeometry(0.405, 0.405, 0.05, 16);
+      const rimGeo = new THREE.CylinderGeometry(0.385, 0.385, 0.04, 18);
       const rimMat = mat('#facc15', 0.3, 0.7);
       const rim = new THREE.Mesh(rimGeo, rimMat);
-      rim.position.set(0, 2.9, -0.02);
+      rim.position.set(0, 2.85, -0.02);
       bodyGroup.add(rim);
     } else if (cfg.accessory === 'prayer_beads') {
-      // Tasbih / Rosary beads necklace looped around neck
       const beadsGroup = new THREE.Group();
-      beadsGroup.position.set(0, 1.82, 0.22);
-      const beadGeo = new THREE.SphereGeometry(0.022, 6, 6);
-      const beadMat = mat('#78350f', 0.3, 0.2); // Polished mahogany/amber beads
+      beadsGroup.position.set(0, 1.82, 0.20);
+      const beadGeo = new THREE.SphereGeometry(0.020, 6, 6);
+      const beadMat = mat('#78350f', 0.3, 0.2);
 
       for (let b = 0; b < 16; b++) {
         const angle = (b / 16) * Math.PI * 2;
-        const bx = Math.sin(angle) * 0.16;
-        const by = Math.cos(angle) * 0.22;
+        const bx = Math.sin(angle) * 0.15;
+        const by = Math.cos(angle) * 0.20;
         const bead = new THREE.Mesh(beadGeo, beadMat);
         bead.position.set(bx, by, 0);
         beadsGroup.add(bead);
       }
 
-      // Tassel at the bottom
-      const tasselGeo = new THREE.CylinderGeometry(0.015, 0.035, 0.1, 6);
-      const tasselMat = mat('#16a34a', 0.4); // Emerald green tassel
+      const tasselGeo = new THREE.CylinderGeometry(0.012, 0.030, 0.09, 6);
+      const tasselMat = mat('#16a34a', 0.4);
       const tassel = new THREE.Mesh(tasselGeo, tasselMat);
-      tassel.position.set(0, -0.27, 0);
+      tassel.position.set(0, -0.25, 0);
       beadsGroup.add(tassel);
 
       bodyGroup.add(beadsGroup);

@@ -17,7 +17,7 @@ import type {
   LionsHallEvent,
   CharacterGender,
 } from '../types/game';
-import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS } from '../data/campusData';
+import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS, getDefaultHostelItems } from '../data/campusData';
 import { DEFAULT_PLAYER_CUSTOMIZATION } from '../data/npcData';
 import {
   supabase,
@@ -361,6 +361,7 @@ interface GameContextType {
   isSenateClearanceModalOpen: boolean;
   setIsSenateClearanceModalOpen: (val: boolean | ((prev: boolean) => boolean)) => void;
   completeSenateDocumentation: (params: { jambScore: number; waecSelections: Record<string, string> }) => Promise<void>;
+  markAcceptanceFeePaid: (newBalance?: number) => void;
 
   // Campus Billboards & Ad System
   billboards: BillboardAd[];
@@ -436,7 +437,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       academicLevel: '100 Level (Fresher)',
       status: 'lapo',
       gender: 'male',
-      assignedHostel: 'Emerald Hall (Male)',
+      assignedHostel: 'Emerald Hall (Male Wing)',
       roommateName: 'Femi',
       roommateEvicted: false,
       acceptance_fee_paid: false,
@@ -509,7 +510,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             gender: parsedGender,
             assignedHostel:
               parsed.assignedHostel ||
-              (parsedGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)'),
+              (parsedGender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)"),
             roommateName:
               parsed.roommateName ||
               (parsedGender === 'female' ? 'Zainab' : 'Femi'),
@@ -661,7 +662,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const roomItems =
     locationItemsMap[currentLocation] && locationItemsMap[currentLocation].length > 0
       ? locationItemsMap[currentLocation]
-      : (DEFAULT_LOCATION_ITEMS[currentLocation] || DEFAULT_LOCATION_ITEMS.home_hostel);
+      : (currentLocation === 'home_hostel'
+          ? getDefaultHostelItems(stats.gender, stats.assignedHostel)
+          : (DEFAULT_LOCATION_ITEMS[currentLocation] || DEFAULT_LOCATION_ITEMS.home_hostel));
 
   const [quests, setQuests] = useState<Quest[]>([
     { id: 'q1', title: 'Maintain 4.50+ First Class CGPA', reward: 5000, completed: true, progress: 4.52, maxProgress: 4.50 },
@@ -737,11 +740,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const pGender = profile.gender || 'male';
       const assignedHostel =
         profile.assignedHostel ||
-        (pGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)');
+        (pGender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)");
       const roommateName =
         profile.roommateName ||
         (pGender === 'female' ? 'Zainab' : 'Femi');
       const roommateEvicted = profile.roommateEvicted ?? false;
+
+      setLastVisitedLandmarkId(pGender === 'female' ? 'hostels_female' : 'hostels_male');
 
       setStats((prev) => {
         const next: PlayerStats = {
@@ -788,11 +793,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const aGender = account.gender || 'male';
       const assignedHostel =
         account.assignedHostel ||
-        (aGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)');
+        (aGender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)");
       const roommateName =
         account.roommateName ||
         (aGender === 'female' ? 'Zainab' : 'Femi');
       const roommateEvicted = account.roommateEvicted ?? false;
+
+      setLastVisitedLandmarkId(aGender === 'female' ? 'hostels_female' : 'hostels_male');
 
       setStats((prev) => {
         const next: PlayerStats = {
@@ -873,6 +880,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     }
   }, [stats.matricNo]);
+
+  const markAcceptanceFeePaid = useCallback(
+    (newBalance?: number) => {
+      setStats((prev) => {
+        const next: PlayerStats = {
+          ...prev,
+          balance: typeof newBalance === 'number' ? newBalance : prev.balance,
+          acceptance_fee_paid: true,
+        };
+        try {
+          localStorage.setItem('lu_player_profile', JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+
+      try {
+        getStudentAccounts()
+          .then(async (accounts) => {
+            const idx = accounts.findIndex(
+              (a) => a.matricNo.toLowerCase() === stats.matricNo.toLowerCase()
+            );
+            if (idx >= 0) {
+              accounts[idx].acceptance_fee_paid = true;
+              if (typeof newBalance === 'number') {
+                accounts[idx].balance = newBalance;
+              }
+              await saveStudentAccount(accounts[idx]);
+            }
+          })
+          .catch(() => {});
+      } catch {
+        // ignore
+      }
+    },
+    [stats.matricNo]
+  );
 
   const completeSenateDocumentation = useCallback(
     async (params: { jambScore: number; waecSelections: Record<string, string> }) => {
@@ -2703,6 +2748,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSenateClearanceModalOpen,
         setIsSenateClearanceModalOpen,
         completeSenateDocumentation,
+        markAcceptanceFeePaid,
         setStats,
         billboards,
         selectedBillboard,

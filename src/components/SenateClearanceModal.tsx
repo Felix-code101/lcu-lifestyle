@@ -16,8 +16,9 @@ import {
 export const SenateClearanceModal: React.FC = () => {
   const {
     stats,
-    spendBalance,
     addBalance,
+    setBalance,
+    markAcceptanceFeePaid,
     isSenateClearanceModalOpen,
     setIsSenateClearanceModalOpen,
     completeSenateDocumentation,
@@ -90,24 +91,68 @@ export const SenateClearanceModal: React.FC = () => {
 
   if (!isSenateClearanceModalOpen) return null;
 
-  const handlePayAcceptanceFee = () => {
-    if (stats.balance < ACCEPTANCE_FEE) {
-      addToast(
-        `❌ Insufficient funds! You need ₦${ACCEPTANCE_FEE.toLocaleString()} to pay your acceptance fee. Claim the student grant below.`,
-        'warning'
-      );
-      return;
-    }
-
+  const handlePayAcceptanceFee = async () => {
     setIsProcessingPayment(true);
-    setTimeout(async () => {
-      const ok = spendBalance(ACCEPTANCE_FEE);
-      if (ok) {
-        addToast('🏛️ Acceptance Fee paid successfully! Proceeding to Academic Documentation.', 'success');
-        setStep(2);
+    try {
+      let rpcHandled = false;
+      let newBalance = stats.balance - ACCEPTANCE_FEE;
+
+      if (supabase && stats.matricNo) {
+        const { data, error } = await supabase.rpc('pay_acceptance_fee', {
+          student_matric: stats.matricNo,
+          fee_amount: ACCEPTANCE_FEE,
+        });
+
+        if (error) {
+          // If RPC is missing in remote database, handle graceful local fallback
+          const isRpcMissing =
+            error.message?.includes('function') ||
+            error.message?.includes('does not exist') ||
+            error.code === 'PGRST202';
+          if (!isRpcMissing) {
+            alert(error.message || 'Payment failed. Ensure you have sufficient balance.');
+            setIsProcessingPayment(false);
+            return;
+          }
+        } else if (data) {
+          if (!data.success) {
+            alert(data.message || 'Payment failed. Ensure you have sufficient balance.');
+            setIsProcessingPayment(false);
+            return;
+          }
+          newBalance = typeof data.new_balance === 'number' ? data.new_balance : newBalance;
+          rpcHandled = true;
+        }
       }
+
+      // Local fallback balance check if RPC wasn't executed
+      if (!rpcHandled) {
+        if (stats.balance < ACCEPTANCE_FEE) {
+          alert('Payment failed. Ensure you have sufficient balance.');
+          setIsProcessingPayment(false);
+          return;
+        }
+        if (supabase && stats.matricNo) {
+          await supabase
+            .from('students')
+            .update({ cash: newBalance, acceptance_fee_paid: true })
+            .eq('matric_no', stats.matricNo);
+        }
+      }
+
+      // Update active state immediately
+      markAcceptanceFeePaid(newBalance);
+      setBalance(newBalance);
+      setStep(2);
+
+      alert('Acceptance fee paid! Proceed with your JAMB & WAEC documentation.');
+      addToast('🏛️ Acceptance Fee paid successfully! Proceeding to Academic Documentation.', 'success');
+    } catch (err: any) {
+      console.error('Acceptance fee payment error:', err);
+      alert(err?.message || 'Payment failed. Ensure you have sufficient balance.');
+    } finally {
       setIsProcessingPayment(false);
-    }, 400);
+    }
   };
 
   const handleClaimGrant = () => {

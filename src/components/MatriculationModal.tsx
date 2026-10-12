@@ -222,7 +222,8 @@ export const MatriculationModal: React.FC = () => {
     scene.background = new THREE.Color(0xf8fafc);
 
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 50);
-    camera.position.set(0, 1.9, 4.8);
+    camera.position.set(0, 1.25, 3.4);
+    camera.lookAt(0, 1.05, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -243,7 +244,7 @@ export const MatriculationModal: React.FC = () => {
     scene.add(backLight);
 
     // Platform
-    const platGeo = new THREE.CylinderGeometry(1.2, 1.3, 0.1, 32);
+    const platGeo = new THREE.CylinderGeometry(0.85, 0.95, 0.1, 32);
     const platMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 });
     const platform = new THREE.Mesh(platGeo, platMat);
     platform.position.y = -0.05;
@@ -403,7 +404,7 @@ export const MatriculationModal: React.FC = () => {
     const initialMood = rollResult === 'nepo' ? 100 : 85;
 
     // Gender-based hostel & roommate spawn logic
-    const assignedHostel = gender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)';
+    const assignedHostel = gender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)";
     const roommateName = gender === 'female' ? 'Zainab' : 'Femi';
     const roommateEvicted = false;
 
@@ -496,6 +497,10 @@ export const MatriculationModal: React.FC = () => {
       setLastVisitedLandmarkId('medical_centre');
       navigateToLocation('medical_centre');
       addToast('🏥 Welcome to College of Medicine / Medical Complex!', 'info');
+    } else {
+      const initialLandmark = gender === 'female' ? 'hostels_female' : 'hostels_male';
+      setLastVisitedLandmarkId(initialLandmark);
+      navigateToLocation('home_hostel');
     }
 
     if (rollResult === 'nepo') {

@@ -143,7 +143,7 @@ export const registerStudentToDatabase = async (playerData: StudentRegistrationD
   const assignedHostel =
     playerData.assignedHostel ||
     playerData.assigned_hostel ||
-    (playerData.gender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)');
+    (playerData.gender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)");
   const roommateName =
     playerData.roommateName ||
     playerData.roommate_name ||
@@ -620,7 +620,7 @@ export async function authenticateStudent(
             gender: studentGender,
             assignedHostel:
               (student as any).assigned_hostel ||
-              (studentGender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)'),
+              (studentGender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)"),
             roommateName:
               (student as any).roommate_name ||
               (studentGender === 'female' ? 'Zainab' : 'Femi'),

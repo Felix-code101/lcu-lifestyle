@@ -337,13 +337,13 @@ export const TopBar: React.FC = () => {
 
             {/* Room Assignment Badge */}
             <div
-              title={`Assigned Student Dormitory: ${stats.assignedHostel || (stats.gender === 'female' ? 'Ruby Hall (Female)' : 'Emerald Hall (Male)')} Room 204`}
+              title={`Assigned Student Dormitory: ${stats.assignedHostel || (stats.gender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)")} Room 204`}
               className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-2xs shrink-0 text-slate-700"
             >
               <Home className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="text-[10px] font-bold tracking-tight">Room 204</span>
               <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-semibold hidden sm:inline">
-                {stats.assignedHostel ? stats.assignedHostel.replace(' (Male)', '').replace(' (Female)', '') : (stats.gender === 'female' ? 'Ruby Hall' : 'Emerald Hall')}
+                {stats.assignedHostel ? stats.assignedHostel.replace(' (Male Wing)', '').replace(' (Female Wing)', '').replace(' (Male)', '').replace(' (Female)', '') : (stats.gender === 'female' ? "Queen's Hall" : 'Emerald Hall')}
               </span>
             </div>
 

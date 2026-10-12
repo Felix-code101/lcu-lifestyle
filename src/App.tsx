@@ -6,7 +6,6 @@ import { TopBar } from './components/TopBar';
 import { LocationActivityBar } from './components/LocationActivityBar';
 import { NavigationDock } from './components/NavigationDock';
 import { GameNotifications } from './components/GameNotifications';
-import { HostelSidebarNav } from './components/HostelSidebarNav';
 import { CustomizeCharacterModal } from './components/CustomizeCharacterModal';
 import { NPCDialogueModal } from './components/NPCDialogueModal';
 import { CampusPhone } from './components/CampusPhone';
@@ -166,7 +165,6 @@ function GameRoot() {
               <>
                 <IsometricCanvas remotePlayers={currentLocation === 'home_hostel' ? [] : remotePlayers} />
                 <LocationActivityBar />
-                <HostelSidebarNav />
               </>
             );
         }

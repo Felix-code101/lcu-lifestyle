@@ -2,12 +2,24 @@ import React from 'react';
 import { useGame, AVAILABLE_SHOP_ITEMS } from '../../context/GameContext';
 import type { ShopItem } from '../../types/game';
 import { Hammer, X, Plus } from 'lucide-react';
+import { soundManager } from '../../lib/soundManager';
 
 export const BuildPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { stats, selectedPlacingItem, setSelectedPlacingItem } = useGame();
+  const { stats, selectedPlacingItem, setSelectedPlacingItem, currentLocation, addToast } = useGame();
 
   const handleSelectItem = (item: ShopItem) => {
-    if (stats.balance < item.price) return;
+    const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+    if (!isHostel) {
+      addToast('Furniture can only be placed inside your personal hostel room!', 'warning');
+      soundManager.playError();
+      onClose();
+      return;
+    }
+    if (stats.balance < item.price) {
+      soundManager.playError();
+      return;
+    }
+    soundManager.playClick();
     setSelectedPlacingItem(item);
     onClose();
   };

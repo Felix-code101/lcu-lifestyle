@@ -9,6 +9,7 @@ import {
 import { ShopPanel } from './Panels/ShopPanel';
 import { QuestsPanel } from './Panels/QuestsPanel';
 import { SettingsPanel } from './Panels/SettingsPanel';
+import { soundManager } from '../lib/soundManager';
 
 interface TabConfig {
   id: 'home' | 'shop' | 'phone' | 'map';
@@ -73,6 +74,8 @@ export const NavigationDock: React.FC = () => {
     setActiveDialogueNPC(null);
     setIsWardrobeOpen(false);
 
+    soundManager.playClick();
+
     if (tab.id === 'home') {
       navigateToLocation('home_hostel');
       setActiveTab(null);
@@ -83,9 +86,10 @@ export const NavigationDock: React.FC = () => {
     if (tab.id === 'shop') {
       if (!isAtHome) {
         addToast(
-          'You can only purchase and place hostel furniture while inside your room!',
+          'Furniture can only be placed inside your personal hostel room!',
           'warning'
         );
+        soundManager.playError();
         return;
       }
       setIsPhoneOpen(false);

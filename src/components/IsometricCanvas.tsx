@@ -10,6 +10,7 @@ import { TileInteractModal } from './TileInteractModal';
 import type { RoomItem, CampusNPC, GameLocation, CharacterCustomization, RemotePlayer } from '../types/game';
 import { RemoteStudentModal } from './RemoteStudentModal';
 import { MapPin } from 'lucide-react';
+import { soundManager } from '../lib/soundManager';
 
 interface ScreenBadge {
   id: string;
@@ -48,6 +49,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     isWardrobeOpen,
     activeTab,
     isPhoneOpen,
+    addToast,
   } = useGame();
 
   const [hoveredTile, setHoveredTile] = useState<{ x: number; z: number } | null>(null);
@@ -72,6 +74,16 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
   useEffect(() => {
     handleClosePlacement();
   }, [activeTab, currentLocation, isPhoneOpen, handleClosePlacement]);
+
+  // Strict Hostel Placement Gating: Abort and warn if placement triggered outside personal hostel room
+  useEffect(() => {
+    const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+    if (!isHostel && selectedPlacingItem) {
+      setSelectedPlacingItem(null);
+      addToast('Furniture can only be placed inside your personal hostel room!', 'warning');
+      soundManager.playError();
+    }
+  }, [currentLocation, selectedPlacingItem, setSelectedPlacingItem, addToast]);
 
   // Three.js Scene References
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -707,10 +719,20 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     };
   }, []);
 
-  // Raycaster & Mouse Hover Snapping to 18x18 Grid
+  // Raycaster & Mouse Hover Snapping to 18x18 Grid (Strictly Personal Hostel Room Only)
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!containerRef.current || !cameraRef.current || !sceneRef.current) return;
+
+      const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+      // Outside personal hostel room: completely disable raycast grid tile snapping and placement mode
+      if (!isHostel) {
+        if (tileHighlightRef.current) {
+          tileHighlightRef.current.visible = false;
+        }
+        setHoveredTile(null);
+        return;
+      }
 
       const rect = containerRef.current.getBoundingClientRect();
       const mouse = new THREE.Vector2(
@@ -725,7 +747,8 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       const targetPoint = new THREE.Vector3();
 
       if (raycaster.ray.intersectPlane(groundPlane, targetPoint)) {
-        if (targetPoint.x >= -9 && targetPoint.x <= 9 && targetPoint.z >= -9 && targetPoint.z <= 9) {
+        // Enforce room boundary coordinates strictly within [-8.5, 8.5]
+        if (targetPoint.x >= -8.5 && targetPoint.x <= 8.5 && targetPoint.z >= -8.5 && targetPoint.z <= 8.5) {
           const gridX = Math.floor(targetPoint.x) + 0.5;
           const gridZ = Math.floor(targetPoint.z) + 0.5;
 
@@ -752,7 +775,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       }
       setHoveredTile(null);
     },
-    [roomItems]
+    [roomItems, currentLocation]
   );
 
   // Capture pointer down position to differentiate clean taps from camera drags / pans
@@ -838,12 +861,31 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
             return;
           }
 
+          const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+
           // Check if quick place mode is active
           if (selectedPlacingItem) {
+            if (!isHostel) {
+              setSelectedPlacingItem(null);
+              addToast('Furniture can only be placed inside your personal hostel room!', 'warning');
+              soundManager.playError();
+              return;
+            }
+
+            // Strictly within hostel boundary coordinates (-8.5 to 8.5)
+            if (gridX < -8.5 || gridX > 8.5 || gridZ < -8.5 || gridZ > 8.5) {
+              addToast('Cannot place furniture outside room boundaries!', 'warning');
+              soundManager.playError();
+              return;
+            }
+
             const occupied = roomItems.some(
               (i) => Math.abs(i.x - gridX) < 0.7 && Math.abs(i.z - gridZ) < 0.7
             );
-            if (occupied) return;
+            if (occupied) {
+              soundManager.playError();
+              return;
+            }
 
             const success = spendBalance(selectedPlacingItem.price);
             if (success) {
@@ -860,7 +902,16 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
             return;
           }
 
-          // Open Tile Interaction / Placement Modal
+          // Open Tile Interaction / Placement Modal strictly when in personal hostel room
+          if (!isHostel) {
+            return;
+          }
+
+          // Strictly within room boundary coordinates (-8.5 to 8.5)
+          if (gridX < -8.5 || gridX > 8.5 || gridZ < -8.5 || gridZ > 8.5) {
+            return;
+          }
+
           const clickedItem =
             roomItems.find(
               (i) => Math.abs(i.x - gridX) < 0.7 && Math.abs(i.z - gridZ) < 0.7
@@ -886,6 +937,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       setSelectedPlacingItem,
       setActiveDialogueNPC,
       setIsWardrobeOpen,
+      addToast,
     ]
   );
 
@@ -981,8 +1033,8 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
         />
       )}
 
-      {/* Placement Mode Active Indicator Banner */}
-      {selectedPlacingItem && (
+      {/* Placement Mode Active Indicator Banner (Strictly Personal Hostel Room Only) */}
+      {selectedPlacingItem && (currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel') && (
         <div
           onPointerDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
@@ -1020,8 +1072,8 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
         />
       )}
 
-      {/* Grid Coordinates Tooltip */}
-      {hoveredTile && !activeInteractTile && (
+      {/* Grid Coordinates Tooltip (Strictly Personal Hostel Room Only) */}
+      {hoveredTile && !activeInteractTile && (currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel') && (
         <div className="absolute bottom-20 right-6 z-10 px-3 py-1.5 rounded-xl bg-white/90 backdrop-blur-md border border-slate-300 text-[11px] font-mono text-slate-700 shadow-md pointer-events-none">
           Tile: ({hoveredTile.x.toFixed(1)}, {hoveredTile.z.toFixed(1)})
         </div>

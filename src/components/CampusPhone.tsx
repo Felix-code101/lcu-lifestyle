@@ -29,10 +29,15 @@ import {
   SunMoon,
   RotateCcw,
   Radio,
+  Volume2,
+  VolumeX,
+  Music,
+  Settings,
 } from 'lucide-react';
 import { CampusChatApp } from './CampusChatApp';
 import { MessagesApp } from './MessagesApp';
 import type { RemotePlayer } from '../types/game';
+import { soundManager, useAudioSettings } from '../lib/soundManager';
 
 type AppId = 'home' | 'bank' | 'chow' | 'gigs' | 'messages' | 'portal' | 'shuttle' | 'maps' | 'settings' | 'buzz';
 
@@ -85,6 +90,8 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
     takeLapoLoan,
     repayLapoLoan,
   } = useGame();
+
+  const { settings: audioSettings, toggleBgm, toggleSfx, setBgmVolume, setSfxVolume } = useAudioSettings();
 
   const [activeApp, setActiveApp] = useState<AppId>('home');
 
@@ -550,15 +557,18 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
                   <span className="text-[11px] font-semibold text-slate-800 tracking-tight">LU Maps</span>
                 </button>
 
-                {/* 9. ⚙️ Campus Settings / Themes App */}
+                {/* 9. ⚙️ Campus Settings & Audio App */}
                 <button
-                  onClick={() => setActiveApp('settings')}
+                  onClick={() => {
+                    soundManager.playClick();
+                    setActiveApp('settings');
+                  }}
                   className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
                 >
                   <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-700/25 border border-slate-600/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Palette className="w-6 h-6 text-indigo-300" />
+                    <Settings className="w-6 h-6 text-indigo-300" />
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Themes</span>
+                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Settings</span>
                 </button>
 
                 {/* 10. Shuttle Fast-Travel */}
@@ -1406,6 +1416,117 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
 
               {/* Settings Body */}
               <div className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
+                {/* Audio & Sound Preferences Section */}
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-3.5">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-xl bg-violet-100 text-violet-700 border border-violet-200">
+                        <Volume2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-xs">Audio & Sound</h4>
+                        <span className="text-[10px] text-slate-500 block">Manage campus BGM and sound cues</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Background Music (BGM) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {audioSettings.bgmEnabled ? (
+                          <Music className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <div>
+                          <span className="font-bold text-slate-900 text-xs block">Background Music</span>
+                          <span className="text-[10px] text-slate-500 block leading-tight">Play ambient campus tunes</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleBgm();
+                          soundManager.playClick();
+                        }}
+                        className={`w-12 h-6.5 rounded-full transition-colors relative p-0.5 cursor-pointer flex items-center shrink-0 ${
+                          audioSettings.bgmEnabled ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
+                        }`}
+                        title="Toggle Background Music"
+                      >
+                        <span className="w-5.5 h-5.5 rounded-full bg-white shadow-md block" />
+                      </button>
+                    </div>
+
+                    {/* BGM Volume Slider */}
+                    {audioSettings.bgmEnabled && (
+                      <div className="flex items-center gap-2 pl-6 pt-1">
+                        <span className="text-[10px] font-mono font-bold text-slate-600 w-8">
+                          {Math.round(audioSettings.bgmVolume * 100)}%
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={audioSettings.bgmVolume}
+                          onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                          className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sound Effects (SFX) */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {audioSettings.sfxEnabled ? (
+                          <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <div>
+                          <span className="font-bold text-slate-900 text-xs block">Sound Effects</span>
+                          <span className="text-[10px] text-slate-500 block leading-tight">UI taps, purchases, and activity cues</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleSfx();
+                          soundManager.playClick();
+                        }}
+                        className={`w-12 h-6.5 rounded-full transition-colors relative p-0.5 cursor-pointer flex items-center shrink-0 ${
+                          audioSettings.sfxEnabled ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
+                        }`}
+                        title="Toggle Sound Effects"
+                      >
+                        <span className="w-5.5 h-5.5 rounded-full bg-white shadow-md block" />
+                      </button>
+                    </div>
+
+                    {/* SFX Volume Slider */}
+                    {audioSettings.sfxEnabled && (
+                      <div className="flex items-center gap-2 pl-6 pt-1">
+                        <span className="text-[10px] font-mono font-bold text-slate-600 w-8">
+                          {Math.round(audioSettings.sfxVolume * 100)}%
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={audioSettings.sfxVolume}
+                          onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+                          className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Theme Presets */}
                 <div>
                   <div className="mb-2">

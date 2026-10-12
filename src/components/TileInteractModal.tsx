@@ -15,6 +15,7 @@ import {
   Coins,
   Package,
 } from 'lucide-react';
+import { soundManager } from '../lib/soundManager';
 
 interface TileInteractModalProps {
   tileCoord: { x: number; z: number } | null;
@@ -31,7 +32,7 @@ export const TileInteractModal: React.FC<TileInteractModalProps> = ({
   onRotateItem,
   onRemoveItem,
 }) => {
-  const { addItemToRoom, spendBalance, stats, performActivity, addToast } = useGame();
+  const { addItemToRoom, spendBalance, stats, performActivity, addToast, currentLocation } = useGame();
   const modalCardRef = useRef<HTMLDivElement>(null);
 
   const handleClose = (e?: React.MouseEvent | React.PointerEvent | React.TouchEvent) => {
@@ -171,8 +172,23 @@ export const TileInteractModal: React.FC<TileInteractModalProps> = ({
 
   // Place a shop item directly onto this clicked tile
   const handlePlaceNewItem = (shopItem: ShopItem) => {
+    const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+    if (!isHostel) {
+      addToast('Furniture can only be placed inside your personal hostel room!', 'warning');
+      soundManager.playError();
+      onClose();
+      return;
+    }
+
+    if (tileCoord.x < -8.5 || tileCoord.x > 8.5 || tileCoord.z < -8.5 || tileCoord.z > 8.5) {
+      addToast('Cannot place furniture outside room boundaries!', 'warning');
+      soundManager.playError();
+      return;
+    }
+
     if (stats.balance < shopItem.price) {
       addToast(`⚠️ Insufficient funds! Needs ₦${shopItem.price.toLocaleString()}`, 'warning');
+      soundManager.playError();
       return;
     }
 

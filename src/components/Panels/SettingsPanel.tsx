@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGame, ROOM_THEMES } from '../../context/GameContext';
-import { Settings, X, Palette, SunMoon, Camera, LogOut, GraduationCap } from 'lucide-react';
+import { Settings, X, Palette, SunMoon, Camera, LogOut, GraduationCap, Volume2, VolumeX, Music } from 'lucide-react';
+import { useAudioSettings, soundManager } from '../../lib/soundManager';
 
 export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const {
@@ -12,6 +13,8 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     stats,
     signOutStudent,
   } = useGame();
+
+  const { settings: audioSettings, toggleBgm, toggleSfx, setBgmVolume, setSfxVolume } = useAudioSettings();
 
   const handleSignOut = () => {
     signOutStudent();
@@ -74,6 +77,113 @@ export const SettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out / Switch Account</span>
           </button>
+        </div>
+
+        {/* Audio & Sound Section */}
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+            <div className="p-1.5 rounded-xl bg-violet-100 text-violet-700 border border-violet-200">
+              <Volume2 className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-xs">Audio & Sound</h4>
+              <span className="text-[10px] text-slate-500 block">Manage campus BGM and sound effects</span>
+            </div>
+          </div>
+
+          {/* Background Music (BGM) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {audioSettings.bgmEnabled ? (
+                  <Music className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
+                )}
+                <div>
+                  <span className="font-bold text-slate-900 text-xs block">Background Music</span>
+                  <span className="text-[10px] text-slate-500 block">Play ambient campus tunes</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  toggleBgm();
+                  soundManager.playClick();
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer flex items-center shrink-0 ${
+                  audioSettings.bgmEnabled ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
+                }`}
+                title="Toggle Background Music"
+              >
+                <span className="w-5 h-5 rounded-full bg-white shadow-md block" />
+              </button>
+            </div>
+
+            {audioSettings.bgmEnabled && (
+              <div className="flex items-center gap-2 pl-6 pt-1">
+                <span className="text-[10px] font-mono font-bold text-slate-600 w-8">
+                  {Math.round(audioSettings.bgmVolume * 100)}%
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={audioSettings.bgmVolume}
+                  onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                  className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Sound Effects (SFX) */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {audioSettings.sfxEnabled ? (
+                  <Volume2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-slate-400 shrink-0" />
+                )}
+                <div>
+                  <span className="font-bold text-slate-900 text-xs block">Sound Effects</span>
+                  <span className="text-[10px] text-slate-500 block">UI taps, purchases, and activity cues</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  toggleSfx();
+                  soundManager.playClick();
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer flex items-center shrink-0 ${
+                  audioSettings.sfxEnabled ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'
+                }`}
+                title="Toggle Sound Effects"
+              >
+                <span className="w-5 h-5 rounded-full bg-white shadow-md block" />
+              </button>
+            </div>
+
+            {audioSettings.sfxEnabled && (
+              <div className="flex items-center gap-2 pl-6 pt-1">
+                <span className="text-[10px] font-mono font-bold text-slate-600 w-8">
+                  {Math.round(audioSettings.sfxVolume * 100)}%
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={audioSettings.sfxVolume}
+                  onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+                  className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Room Theme Section */}

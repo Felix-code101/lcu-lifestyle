@@ -27,6 +27,7 @@ import {
   getStudentAccounts,
   saveStudentAccount,
 } from '../lib/supabase';
+import { soundManager } from '../lib/soundManager';
 
 export interface RoomTheme {
   name: string;
@@ -555,7 +556,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [dayNightCycle, setDayNightCycle] = useState<boolean>(true);
   const [theme, setTheme] = useState<RoomTheme>(ROOM_THEMES[0]);
-  const [selectedPlacingItem, setSelectedPlacingItem] = useState<ShopItem | null>(null);
+  const [selectedPlacingItem, setSelectedPlacingItemState] = useState<ShopItem | null>(null);
   const [resetCameraTrigger, setResetCameraTrigger] = useState<number>(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -697,7 +698,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const setSelectedPlacingItem = useCallback(
+    (item: ShopItem | null) => {
+      if (item !== null) {
+        const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+        if (!isHostel) {
+          addToast('Furniture can only be placed inside your personal hostel room!', 'warning');
+          soundManager.playError();
+          setSelectedPlacingItemState(null);
+          return;
+        }
+      }
+      setSelectedPlacingItemState(item);
+    },
+    [currentLocation, addToast]
+  );
+
+  // Auto-clear placement mode if player navigates outside hostel
+  useEffect(() => {
+    const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+    if (!isHostel && selectedPlacingItem) {
+      setSelectedPlacingItemState(null);
+    }
+  }, [currentLocation, selectedPlacingItem]);
+
   const addBalance = useCallback((amount: number) => {
+    if (amount > 0) {
+      soundManager.playMoney();
+    }
     setStats((prev) => ({
       ...prev,
       balance: prev.balance + amount,
@@ -729,6 +757,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (success) {
       addToast(`-₦${amount.toLocaleString()} paid!`, 'info');
     } else {
+      soundManager.playError();
       addToast('❌ Insufficient student funds in bank balance!', 'warning');
     }
     return success;
@@ -1523,6 +1552,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (activity.requiredRank && stats.spiritualRank < activity.requiredRank) {
+        soundManager.playError();
         addToast(
           `🔒 Locked: Requires Spiritual Rank ${activity.requiredRank} (${
             activity.requiredRank === 2 ? "Choir / Usher or Mu'adhin" : 'Campus Pastor or Campus Alfa'
@@ -1536,11 +1566,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const actualEnergyCost = stats.status === 'nepo' ? Math.round(activity.energyCost * 0.5) : activity.energyCost;
 
       if (actualEnergyCost > 0 && stats.energy < actualEnergyCost) {
+        soundManager.playError();
         addToast(`❌ Too tired! Need at least ${actualEnergyCost}⚡ energy. Rest in hostel or grab food!`, 'warning');
         return;
       }
 
       if (activity.cashCost > 0 && stats.balance < activity.cashCost) {
+        soundManager.playError();
         addToast(`❌ Not enough cash! Requires ₦${activity.cashCost.toLocaleString()}.`, 'warning');
         return;
       }
@@ -1549,10 +1581,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activity.id === 'attend_lecture' ||
         activity.id === 'evening_tutorial' ||
         activity.id === 'read_library' ||
+        activity.id === 'desk_study' ||
+        activity.id === 'laptop_cram' ||
         activity.isCoursework === true ||
         activity.title === 'Attend a Lecture' ||
         activity.title === 'Evening Tutorial Class' ||
         activity.title === 'Read in the Main Library';
+
+      if (isCoursework) {
+        soundManager.playStudy();
+      }
 
       let updatedAttendance = stats.classesAttended || 0;
 
@@ -2300,6 +2338,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addItemToRoom = useCallback(
     (item: Omit<RoomItem, 'id'>) => {
+      const isHostel = currentLocation === 'home_hostel' || (currentLocation as string) === 'hostel';
+      if (!isHostel) {
+        addToast('Furniture can only be placed inside your personal hostel room!', 'warning');
+        soundManager.playError();
+        return;
+      }
+
       const id = 'item_' + Date.now();
       const newItem: RoomItem = { ...item, id };
 
@@ -2340,7 +2385,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .catch(() => {});
       }
 
-      addToast(`Placed ${item.name} in current room!`, 'success');
+      soundManager.playPlace();
+      addToast(`Placed ${item.name} in personal hostel room!`, 'success');
     },
     [currentLocation, stats.matricNo, addToast]
   );

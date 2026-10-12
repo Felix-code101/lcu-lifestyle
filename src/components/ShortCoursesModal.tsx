@@ -5,6 +5,7 @@ import {
   type ShortCourseLesson,
 } from '../data/coursesData';
 import { X, Check, Lock, Award } from 'lucide-react';
+import { soundManager } from '../lib/soundManager';
 
 interface ShortCoursesModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const ShortCoursesModal: React.FC<ShortCoursesModalProps> = ({
     if (!currentLesson) return;
 
     if (stats.isLongVacation) {
+      soundManager.playError();
       addToast(
         '🏖️ Annual Long Vacation Active! Lecture theatres are closed. Hustle holiday gigs, then resume next session.',
         'warning'
@@ -61,6 +63,7 @@ export const ShortCoursesModal: React.FC<ShortCoursesModalProps> = ({
     }
 
     if (stats.energy < currentLesson.energyCost) {
+      soundManager.playError();
       addToast(
         `⚡ Low Energy! You need ${currentLesson.energyCost}⚡ energy to attend this lesson. Rest or eat in cafeteria first!`,
         'warning'
@@ -80,6 +83,7 @@ export const ShortCoursesModal: React.FC<ShortCoursesModalProps> = ({
     });
 
     if (success) {
+      soundManager.playStudy();
       const nextCompleted = [...completedLessonIds, currentLesson.id];
       setCompletedLessonIds(nextCompleted);
 

@@ -60,7 +60,7 @@ export const NavigationDock: React.FC = () => {
       id: 'map',
       label: 'Map',
       icon: Map,
-      glowColor: 'from-emerald-500 to-teal-500',
+      glowColor: 'from-blue-600 to-indigo-600',
     },
     {
       id: 'phone',
@@ -80,7 +80,7 @@ export const NavigationDock: React.FC = () => {
       label: 'Inventory',
       icon: Package,
       badge: roomItems.length,
-      glowColor: 'from-emerald-500 to-teal-500',
+      glowColor: 'from-blue-600 to-indigo-600',
     },
   ];
 
@@ -181,14 +181,14 @@ export const NavigationDock: React.FC = () => {
 
                 {/* Badge if available */}
                 {tab.badge !== undefined && tab.badge > 0 && (
-                  <span className="absolute top-1 right-1.5 min-w-[15px] h-3.5 px-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-white flex items-center justify-center border border-white">
+                  <span className="absolute top-1 right-1.5 min-w-[15px] h-3.5 px-0.5 rounded-full bg-blue-600 text-[9px] font-bold text-white flex items-center justify-center border border-white">
                     {tab.badge}
                   </span>
                 )}
 
                 <Icon
                   className={`w-4 sm:w-5 h-4 sm:h-5 transition-transform group-hover:scale-110 ${
-                    isActive ? 'text-emerald-600' : ''
+                    isActive ? 'text-blue-600' : ''
                   }`}
                 />
                 <span className="text-[9px] sm:text-[10px] font-semibold mt-0.5 sm:mt-1 tracking-tight">

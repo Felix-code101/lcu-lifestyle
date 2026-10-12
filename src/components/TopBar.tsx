@@ -79,10 +79,10 @@ export const TopBar: React.FC = () => {
             {/* Student ID Avatar & Academic Level */}
             <div className="flex items-center gap-2 px-2 sm:px-2.5 py-1 rounded-xl sm:rounded-2xl bg-white border border-slate-200/90 shadow-xs shrink-0">
               <div className="relative">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-black text-[11px] sm:text-xs shadow-xs border border-emerald-400/40">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-[11px] sm:text-xs shadow-xs border border-blue-400/40">
                   LU
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-600 border-2 border-white flex items-center justify-center">
                   <span className="w-0.5 h-0.5 rounded-full bg-white"></span>
                 </div>
               </div>
@@ -92,14 +92,14 @@ export const TopBar: React.FC = () => {
                   <span className="text-[11px] sm:text-xs font-bold text-slate-900 tracking-wide truncate max-w-[80px] sm:max-w-none">
                     {stats.academicLevel || `LU ${stats.currentLevel || 100}L`}
                   </span>
-                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono font-semibold">
+                  <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-200 font-mono font-semibold">
                     {stats.matricNo}
                   </span>
                 </div>
                 {/* XP mini bar */}
                 <div className="w-16 sm:w-20 h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5 border border-slate-200">
                   <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300"
                     style={{ width: `${xpPercent}%` }}
                   />
                 </div>
@@ -177,7 +177,7 @@ export const TopBar: React.FC = () => {
               title={showMobileStats ? 'Hide Vitals Drawer' : 'Show Vitals Drawer'}
               className={`p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border transition-all active:scale-95 cursor-pointer ${
                 showMobileStats
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                  ? 'bg-blue-50 border-blue-300 text-blue-700'
                   : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
@@ -275,7 +275,7 @@ export const TopBar: React.FC = () => {
                 title={dayNightCycle ? 'Dynamic Sky: Active' : 'Static Lighting: Active'}
                 className={`px-1 py-0.2 rounded text-[9px] font-mono border transition-colors cursor-pointer ${
                   dayNightCycle
-                    ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                    ? 'bg-blue-100 border-blue-300 text-blue-800'
                     : 'bg-slate-100 border-slate-200 text-slate-600'
                 }`}
               >

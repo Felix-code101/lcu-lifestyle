@@ -239,6 +239,7 @@ interface GameContextType {
   navigateToLocation: (loc: GameLocation) => void;
   isTransitioning: boolean;
   stats: PlayerStats;
+  setStats: React.Dispatch<React.SetStateAction<PlayerStats>>;
   addBalance: (amount: number) => void;
   setBalance: (amount: number) => void;
   spendBalance: (amount: number) => boolean;
@@ -356,7 +357,10 @@ interface GameContextType {
   setSocioeconomicStatus: (status: SocioeconomicStatus, newBalance?: number) => void;
   takeLapoLoan: () => boolean;
   repayLapoLoan: () => boolean;
-  setStats: React.Dispatch<React.SetStateAction<PlayerStats>>;
+  // Senate Building Documentation & Clearance
+  isSenateClearanceModalOpen: boolean;
+  setIsSenateClearanceModalOpen: (val: boolean | ((prev: boolean) => boolean)) => void;
+  completeSenateDocumentation: (params: { jambScore: number; waecSelections: Record<string, string> }) => Promise<void>;
 
   // Campus Billboards & Ad System
   billboards: BillboardAd[];
@@ -435,6 +439,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       assignedHostel: 'Emerald Hall (Male)',
       roommateName: 'Femi',
       roommateEvicted: false,
+      acceptance_fee_paid: false,
+      documentation_completed: false,
       isAdmin: false,
       activeLoanAmount: 0,
       balance: 15000,
@@ -508,6 +514,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
               parsed.roommateName ||
               (parsedGender === 'female' ? 'Zainab' : 'Femi'),
             roommateEvicted: parsed.roommateEvicted ?? false,
+            acceptance_fee_paid: parsed.acceptance_fee_paid ?? false,
+            documentation_completed: parsed.documentation_completed ?? false,
+            jamb_score: parsed.jamb_score,
+            waec_results: parsed.waec_results,
             cgpa: effectiveCgpa,
             gpa: parsed.gpa ?? null,
             classesAttended: parsed.classesAttended ?? 0,
@@ -576,6 +586,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isHustleModalOpen, setIsHustleModalOpen] = useState<boolean>(false);
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState<boolean>(false);
   const [isBettingModalOpen, setIsBettingModalOpen] = useState<boolean>(false);
+  const [isSenateClearanceModalOpen, setIsSenateClearanceModalOpen] = useState<boolean>(false);
   const [activeBetSlips, setActiveBetSlips] = useState<ActiveBetSlip[]>(() => {
     try {
       const saved = localStorage.getItem('lu_bet_slips') || localStorage.getItem('lcu_bet_slips');
@@ -746,6 +757,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           assignedHostel,
           roommateName,
           roommateEvicted,
+          acceptance_fee_paid: false,
+          documentation_completed: false,
           email: profile.email,
           balance: profile.balance,
           mood: profile.mood,
@@ -795,6 +808,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           assignedHostel,
           roommateName,
           roommateEvicted,
+          acceptance_fee_paid: account.acceptance_fee_paid ?? false,
+          documentation_completed: account.documentation_completed ?? false,
+          jamb_score: account.jamb_score,
+          waec_results: account.waec_results,
           email: account.email,
           balance: account.balance ?? 15000,
           cgpa: null,
@@ -856,6 +873,70 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ignore
     }
   }, [stats.matricNo]);
+
+  const completeSenateDocumentation = useCallback(
+    async (params: { jambScore: number; waecSelections: Record<string, string> }) => {
+      const { jambScore, waecSelections } = params;
+
+      // 1. Update Supabase if matricNo is available
+      if (stats.matricNo && supabase) {
+        try {
+          const { error } = await supabase
+            .from('students')
+            .update({
+              acceptance_fee_paid: true,
+              documentation_completed: true,
+              jamb_score: jambScore,
+              waec_results: waecSelections,
+            })
+            .eq('matric_no', stats.matricNo);
+
+          if (error) {
+            console.error('Supabase senate clearance update error:', error);
+          }
+        } catch (err) {
+          console.error('Failed to update senate clearance in Supabase:', err);
+        }
+      }
+
+      // 2. Update local PlayerStats
+      setStats((prev) => {
+        const next: PlayerStats = {
+          ...prev,
+          acceptance_fee_paid: true,
+          documentation_completed: true,
+          jamb_score: jambScore,
+          waec_results: waecSelections,
+        };
+        try {
+          localStorage.setItem('lu_player_profile', JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+
+      // 3. Update cached student account in localStorage
+      try {
+        const accounts = await getStudentAccounts();
+        const idx = accounts.findIndex(
+          (a) => a.matricNo.toLowerCase() === stats.matricNo.toLowerCase()
+        );
+        if (idx >= 0) {
+          accounts[idx].acceptance_fee_paid = true;
+          accounts[idx].documentation_completed = true;
+          accounts[idx].jamb_score = jambScore;
+          accounts[idx].waec_results = waecSelections;
+          await saveStudentAccount(accounts[idx]);
+        }
+      } catch {
+        // ignore
+      }
+
+      addToast('Documentation Verified! You are now officially cleared as a bona fide student.', 'success');
+    },
+    [stats.matricNo, addToast]
+  );
 
   const signOutStudent = useCallback(() => {
     setLocationItemsMap({ ...DEFAULT_LOCATION_ITEMS });
@@ -1352,6 +1433,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Perform location-specific student actions (attend class, study, eat, workout, worship)
   const performActivity = useCallback(
     (activity: CampusActivity) => {
+      // Onboarding & Documentation Clearance Check for Freshers
+      if (
+        stats.isRegistered &&
+        !stats.documentation_completed &&
+        activity.id !== 'drink_water' &&
+        activity.id !== 'quick_nap'
+      ) {
+        addToast(
+          '⚠️ Welcome Fresher! Report to the Senate Building immediately for Student Documentation & Acceptance Fee clearance.',
+          'warning'
+        );
+        setIsSenateClearanceModalOpen(true);
+        return;
+      }
+
       // Exam Activity Trigger & Clearance Check
       if (activity.id === 'write_exam' || activity.isExam) {
         if (stats.isLongVacation) {
@@ -2604,6 +2700,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSocioeconomicStatus,
         takeLapoLoan,
         repayLapoLoan,
+        isSenateClearanceModalOpen,
+        setIsSenateClearanceModalOpen,
+        completeSenateDocumentation,
         setStats,
         billboards,
         selectedBillboard,

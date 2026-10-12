@@ -106,6 +106,12 @@ export interface PlayerStats {
   roommateName?: string;
   roommateEvicted?: boolean;
 
+  // Onboarding & Senate Documentation
+  acceptance_fee_paid: boolean;
+  documentation_completed: boolean;
+  jamb_score?: number;
+  waec_results?: Record<string, string>;
+
   balance: number;
   energy: number;
   maxEnergy: number;
@@ -376,6 +382,7 @@ export interface CampusNPC {
   id: string;
   name: string;
   role: string;
+  gender?: CharacterGender;
   avatarIcon: string;
   location: GameLocation;
   position: [number, number, number];

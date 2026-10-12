@@ -127,15 +127,37 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       playerInstance.group.rotation.y = Math.PI / 4;
       group.add(playerInstance.group);
 
-      // 2. Spawn Room NPC (Gender-based Roommate Femi/Zainab or location NPC, unless evicted)
+      // 2. Spawn Room NPC (Gender-based Roommate: Strictly private instance with designated gender-matching roommate)
       let matchingNPC: CampusNPC | null = null;
       if (loc === 'home_hostel') {
         if (stats.roommateEvicted) {
-          // Roommate evicted: do not render in the room
+          // Roommate evicted: strictly solo private instance
           matchingNPC = null;
         } else {
           const isFemale = stats.gender === 'female';
-          matchingNPC = CAMPUS_NPCS.find((n) => n.id === (isFemale ? 'npc_zainab' : 'npc_femi')) || null;
+          if (isFemale) {
+            // Strictly female roommate (Zainab), exclude any male NPCs (Chike, Yinka, Femi)
+            matchingNPC =
+              CAMPUS_NPCS.find(
+                (n) =>
+                  n.id === 'npc_zainab' ||
+                  (n.location === 'home_hostel' &&
+                    (n.gender === 'female' || n.customization.gender === 'female') &&
+                    n.id !== 'npc_femi' &&
+                    n.id !== 'npc_chike')
+              ) || null;
+          } else {
+            // Strictly male roommate (Femi), exclude any female NPCs (Zainab, Chioma)
+            matchingNPC =
+              CAMPUS_NPCS.find(
+                (n) =>
+                  n.id === 'npc_femi' ||
+                  (n.location === 'home_hostel' &&
+                    (n.gender === 'male' || n.customization.gender === 'male') &&
+                    n.id !== 'npc_zainab' &&
+                    n.id !== 'npc_chioma')
+              ) || null;
+          }
         }
       } else {
         matchingNPC = CAMPUS_NPCS.find((n) => n.location === loc) || null;

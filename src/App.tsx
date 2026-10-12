@@ -25,6 +25,7 @@ import { AdelineHallScene } from './components/AdelineHallScene';
 import { StudentUnionScene } from './components/StudentUnionScene';
 import { PenaltyShootoutModal } from './components/PenaltyShootoutModal';
 import { BettingTerminalModal } from './components/BettingTerminalModal';
+import { SenateClearanceModal } from './components/SenateClearanceModal';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { Radio, X } from 'lucide-react';
 
@@ -38,6 +39,7 @@ function GameRoot() {
     stats,
     playerCustomization,
     setSocioeconomicStatus,
+    setIsSenateClearanceModalOpen,
     addToast,
   } = useGame();
 
@@ -97,6 +99,39 @@ function GameRoot() {
               className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-800 transition-colors shrink-0 cursor-pointer"
             >
               <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fresher Student Onboarding & Clearance Directive Banner */}
+      {stats.isRegistered && !stats.documentation_completed && (
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl px-3 sm:px-4 animate-in slide-in-from-top-4 duration-300 pointer-events-auto"
+        >
+          <div className="p-3 sm:p-3.5 rounded-2xl bg-white/95 border-2 border-blue-400 shadow-2xl backdrop-blur-xl flex items-center justify-between gap-3 text-slate-900">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center text-lg shrink-0">
+                🏛️
+              </div>
+              <div className="text-left overflow-hidden">
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 block">
+                  Mandatory Fresher Directive
+                </span>
+                <p className="text-xs font-semibold text-slate-800 leading-snug">
+                  Welcome Fresher! Report to the Senate Building immediately for Student Documentation & Acceptance Fee clearance.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsSenateClearanceModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shrink-0 active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>Clearance</span>
+              <span>➔</span>
             </button>
           </div>
         </div>
@@ -173,6 +208,9 @@ function GameRoot() {
 
       {/* Fresher Matriculation Onboarding & 15% Nepo / 85% Lapo Roll Modal */}
       {!stats.isRegistered && <MatriculationModal />}
+
+      {/* Senate Building Acceptance & Academic Documentation Clearance Modal */}
+      <SenateClearanceModal />
     </div>
   );
 }

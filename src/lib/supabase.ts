@@ -124,6 +124,10 @@ export interface StudentRegistrationData {
   cash?: number;
   classesAttended?: number;
   classes_attended?: number;
+  acceptance_fee_paid?: boolean;
+  documentation_completed?: boolean;
+  jamb_score?: number;
+  waec_results?: Record<string, string>;
 }
 
 // Explicit Supabase registration function matching schema requirements
@@ -504,6 +508,10 @@ export interface StudentAccount {
   level: string;
   status: SocioeconomicStatus;
   balance: number;
+  acceptance_fee_paid?: boolean;
+  documentation_completed?: boolean;
+  jamb_score?: number;
+  waec_results?: Record<string, string>;
   customization?: CharacterCustomization;
   createdAt: string;
 }

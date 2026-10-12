@@ -618,7 +618,7 @@ export const MatriculationModal: React.FC = () => {
                     value={loginIdentifier}
                     onChange={(e) => setLoginIdentifier(e.target.value)}
                     placeholder="e.g. Femi_Codes or LU/24/0982"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     required
                   />
                 </div>
@@ -638,7 +638,7 @@ export const MatriculationModal: React.FC = () => {
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     placeholder="Enter student password"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-10 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     required
                   />
                   <button
@@ -654,7 +654,7 @@ export const MatriculationModal: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoggingIn}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
                 <span>{isLoggingIn ? 'Signing In...' : 'Sign In to Campus'}</span>
@@ -664,7 +664,7 @@ export const MatriculationModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setAuthMode('register')}
-                  className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold cursor-pointer"
+                  className="text-xs text-blue-700 hover:text-blue-800 font-semibold cursor-pointer"
                 >
                   Fresher or new scholar? Click here to Register as New Student →
                 </button>
@@ -700,7 +700,7 @@ export const MatriculationModal: React.FC = () => {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="e.g. Adebayo_LU"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                       required
                     />
                   </div>
@@ -720,7 +720,7 @@ export const MatriculationModal: React.FC = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="At least 4 characters"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-9 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-9 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                       required
                     />
                     <button
@@ -750,7 +750,7 @@ export const MatriculationModal: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. student@leadcity.edu.ng"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                   <span className="text-[10px] text-slate-400 block mt-0.5">Optional: for notices and account recovery</span>
@@ -799,7 +799,7 @@ export const MatriculationModal: React.FC = () => {
                   <select
                     value={selectedFaculty}
                     onChange={(e) => handleFacultyChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-900 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                   >
                     {LU_FACULTIES.map((f) => (
                       <option key={f.faculty} value={f.faculty}>
@@ -816,7 +816,7 @@ export const MatriculationModal: React.FC = () => {
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                   >
                     {currentFacultyDepartments.map((d) => (
                       <option key={d} value={d}>
@@ -830,7 +830,7 @@ export const MatriculationModal: React.FC = () => {
               {/* Matric No & Level Preview */}
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs text-slate-600">
                 <span className="font-mono">
-                  Matric: <strong className="text-emerald-700">{generatedMatricNo}</strong>
+                  Matric: <strong className="text-blue-700">{generatedMatricNo}</strong>
                 </span>
                 <span className="font-semibold text-slate-700">100 Level (Fresher)</span>
               </div>
@@ -839,7 +839,7 @@ export const MatriculationModal: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
               >
                 <span>{isSubmitting ? 'Verifying...' : 'Proceed to Socioeconomic Fate Roll'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -982,7 +982,7 @@ export const MatriculationModal: React.FC = () => {
                           onClick={() => setCustomTab(tab.id as any)}
                           className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1 transition-all shrink-0 cursor-pointer ${
                             customTab === tab.id
-                              ? 'bg-emerald-600 text-white shadow-2xs'
+                              ? 'bg-blue-600 text-white shadow-2xs'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                           }`}
                         >
@@ -1009,7 +1009,7 @@ export const MatriculationModal: React.FC = () => {
                                 onClick={() => setDraftCustomization((p) => ({ ...p, hairStyle: h.id }))}
                                 className={`p-2 rounded-xl text-xs font-bold border text-left transition-all cursor-pointer ${
                                   draftCustomization.hairStyle === h.id
-                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-1 ring-emerald-400'
+                                    ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-400'
                                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                                 }`}
                               >
@@ -1030,7 +1030,7 @@ export const MatriculationModal: React.FC = () => {
                                 onClick={() => setDraftCustomization((p) => ({ ...p, hairColor: c.color }))}
                                 title={c.label}
                                 className={`w-7 h-7 rounded-xl border-2 transition-transform cursor-pointer ${
-                                  draftCustomization.hairColor === c.color ? 'scale-110 border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-300'
+                                  draftCustomization.hairColor === c.color ? 'scale-110 border-blue-500 ring-2 ring-blue-300' : 'border-slate-300'
                                 }`}
                                 style={{ backgroundColor: c.color }}
                               />
@@ -1054,7 +1054,7 @@ export const MatriculationModal: React.FC = () => {
                                 onClick={() => setDraftCustomization((prev) => ({ ...prev, shirtPattern: p.id }))}
                                 className={`p-2 rounded-xl text-xs font-bold border text-left transition-all cursor-pointer ${
                                   draftCustomization.shirtPattern === p.id
-                                    ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-1 ring-emerald-400'
+                                    ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-400'
                                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                                 }`}
                               >
@@ -1075,7 +1075,7 @@ export const MatriculationModal: React.FC = () => {
                                 onClick={() => setDraftCustomization((p) => ({ ...p, shirtColor: c.color }))}
                                 title={c.label}
                                 className={`w-7 h-7 rounded-xl border-2 transition-transform cursor-pointer ${
-                                  draftCustomization.shirtColor === c.color ? 'scale-110 border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-300'
+                                  draftCustomization.shirtColor === c.color ? 'scale-110 border-blue-500 ring-2 ring-blue-300' : 'border-slate-300'
                                 }`}
                                 style={{ backgroundColor: c.color }}
                               />
@@ -1094,7 +1094,7 @@ export const MatriculationModal: React.FC = () => {
                                 onClick={() => setDraftCustomization((p) => ({ ...p, pantsColor: c.color }))}
                                 title={c.label}
                                 className={`w-7 h-7 rounded-xl border-2 transition-transform cursor-pointer ${
-                                  draftCustomization.pantsColor === c.color ? 'scale-110 border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-300'
+                                  draftCustomization.pantsColor === c.color ? 'scale-110 border-blue-500 ring-2 ring-blue-300' : 'border-slate-300'
                                 }`}
                                 style={{ backgroundColor: c.color }}
                               />
@@ -1117,7 +1117,7 @@ export const MatriculationModal: React.FC = () => {
                               onClick={() => setDraftCustomization((p) => ({ ...p, skinTone: s.color }))}
                               className={`p-2 rounded-xl border flex items-center gap-2 text-xs font-semibold cursor-pointer transition-all ${
                                 draftCustomization.skinTone === s.color
-                                  ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-1 ring-emerald-400'
+                                  ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-400'
                                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                               }`}
                             >
@@ -1142,7 +1142,7 @@ export const MatriculationModal: React.FC = () => {
                               onClick={() => setDraftCustomization((p) => ({ ...p, shoesColor: s.color }))}
                               className={`p-2 rounded-xl border flex items-center gap-2 text-xs font-semibold cursor-pointer transition-all ${
                                 draftCustomization.shoesColor === s.color
-                                  ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-1 ring-emerald-400'
+                                  ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-400'
                                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                               }`}
                             >
@@ -1167,7 +1167,7 @@ export const MatriculationModal: React.FC = () => {
                               onClick={() => setDraftCustomization((p) => ({ ...p, accessory: a.id }))}
                               className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all ${
                                 draftCustomization.accessory === a.id
-                                  ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-1 ring-emerald-400'
+                                  ? 'bg-blue-50 border-blue-500 text-blue-800 ring-1 ring-blue-400'
                                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                               }`}
                             >
@@ -1184,7 +1184,7 @@ export const MatriculationModal: React.FC = () => {
                   <div className="pt-3 border-t border-slate-200">
                     <button
                       onClick={handleFinalizeRegistration}
-                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Confirm Avatar & Enter Liids University 🎓</span>

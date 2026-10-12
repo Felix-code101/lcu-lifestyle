@@ -119,6 +119,7 @@ export const CampusMap3D: React.FC = () => {
     billboards,
     setSelectedBillboard,
     setIsBillboardModalOpen,
+    setIsSenateClearanceModalOpen,
     addToast,
   } = useGame();
 
@@ -186,6 +187,9 @@ export const CampusMap3D: React.FC = () => {
       // 4. Force unblock UI (isTraveling = false) and navigate to destination scene
       setTimeout(() => {
         setTransitHUD(null);
+        if (arrivedLandmark.id === 'senate_building') {
+          setIsSenateClearanceModalOpen(true);
+        }
         navigateToLocation(destinationKey);
       }, 200);
     },
@@ -739,7 +743,7 @@ export const CampusMap3D: React.FC = () => {
           </button>
 
           <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200 shadow-md text-xs font-semibold text-slate-700">
-            <Compass className="w-4 h-4 text-emerald-600" />
+            <Compass className="w-4 h-4 text-blue-600" />
             <span>Liids University (LU) • Campus 3D</span>
           </div>
         </div>
@@ -751,9 +755,9 @@ export const CampusMap3D: React.FC = () => {
               setSelectedBillboard(billboards[0]);
               setIsBillboardModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer"
           >
-            <Megaphone className="w-3.5 h-3.5 text-emerald-600" />
+            <Megaphone className="w-3.5 h-3.5 text-blue-600" />
             <span>Ad Stand</span>
           </button>
 
@@ -774,9 +778,9 @@ export const CampusMap3D: React.FC = () => {
       {/* Live Active Transit Tracking HUD Overlay */}
       {transitHUD && (
         <div className="fixed top-[92px] sm:top-24 left-1/2 -translate-x-1/2 z-30 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white/98 backdrop-blur-2xl border border-slate-200 shadow-2xl flex items-center gap-2.5 sm:gap-3 animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-lg sm:text-xl shrink-0 border border-emerald-200 shadow-2xs">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center text-lg sm:text-xl shrink-0 border border-blue-200 shadow-2xs">
             {transitHUD.mode === 'trek' ? (
-              <Footprints className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 animate-pulse" />
+              <Footprints className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 animate-pulse" />
             ) : (
               '🛺'
             )}
@@ -787,7 +791,7 @@ export const CampusMap3D: React.FC = () => {
                 {transitHUD.mode === 'trek' ? 'Trekking to' : 'Commuting via Keke to'}{' '}
                 {transitHUD.landmark.name}
               </span>
-              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-300">
+              <span className="text-[10px] font-mono font-bold text-blue-800 bg-blue-100 px-1.5 py-0.2 rounded border border-blue-300">
                 {transitHUD.progress}%
               </span>
             </div>
@@ -795,7 +799,7 @@ export const CampusMap3D: React.FC = () => {
               <div
                 className={`h-full transition-all duration-100 ${
                   transitHUD.mode === 'trek'
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600'
                     : 'bg-gradient-to-r from-amber-500 to-orange-500'
                 }`}
                 style={{ width: `${transitHUD.progress}%` }}

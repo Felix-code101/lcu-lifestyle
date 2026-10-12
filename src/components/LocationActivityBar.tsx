@@ -43,27 +43,27 @@ export const LocationActivityBar: React.FC = () => {
       {/* Banner Header */}
       <div className="p-2.5 sm:px-4 sm:py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2.5 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700 shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-100 border border-blue-300 flex items-center justify-center text-blue-700 shrink-0">
             <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-wide truncate">
                 {currentLocation === 'home_hostel'
-                  ? stats.assignedHostel || (stats.gender === 'female' ? "Queen's Hall (Hostel)" : 'Emerald Hall (Hostel)')
+                  ? (stats.gender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Male Wing)")
                   : currentLocData.name}
               </h3>
-              <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-mono shrink-0">
+              <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200 text-blue-800 font-mono shrink-0">
                 {currentLocation === 'home_hostel'
-                  ? stats.gender === 'female' ? 'Female Wing' : 'Boys Wing'
+                  ? (stats.gender === 'female' ? 'Female Wing' : 'Male Wing')
                   : currentLocData.tag}
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-emerald-700 font-medium truncate">
+            <p className="text-[10px] sm:text-[11px] text-blue-700 font-medium truncate">
               {currentLocation === 'home_hostel'
                 ? stats.gender === 'female'
-                  ? "Queen's Hall • Emerald Female Wing"
-                  : 'Boys Wing • Room 204'
+                  ? "Queen's Hall • Female Wing • Room 108"
+                  : 'Emerald Hall • Male Wing • Room 204'
                 : currentLocData.subtitle}
             </p>
           </div>
@@ -73,7 +73,7 @@ export const LocationActivityBar: React.FC = () => {
           <button
             onClick={() => setActiveTab('map')}
             title="Open Campus Map"
-            className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-1 transition-all cursor-pointer"
+            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 text-xs flex items-center gap-1 transition-all cursor-pointer"
           >
             <Map className="w-3.5 h-3.5" />
             <span className="hidden sm:inline font-semibold">Map</span>
@@ -127,14 +127,14 @@ export const LocationActivityBar: React.FC = () => {
 
       {/* Mosque Cultural Norm: Shoe Rack Prompt */}
       {currentLocation === 'mosque' && (
-        <div className="px-2.5 py-2 sm:px-3.5 sm:py-2.5 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between gap-2 shrink-0">
+        <div className="px-2.5 py-2 sm:px-3.5 sm:py-2.5 bg-blue-50 border-b border-blue-200 flex items-center justify-between gap-2 shrink-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-sm">👞</span>
             <div className="min-w-0">
-              <p className="text-[10px] sm:text-[11px] font-bold text-emerald-900 truncate">
+              <p className="text-[10px] sm:text-[11px] font-bold text-blue-900 truncate">
                 {stats.removedShoes ? 'Shoes removed at rack' : 'Entrance: Remove Shoes'}
               </p>
-              <p className="text-[9px] sm:text-[10px] text-emerald-700 truncate">
+              <p className="text-[9px] sm:text-[10px] text-blue-700 truncate">
                 {stats.removedShoes
                   ? 'Walking on clean prayer rugs'
                   : 'Place footwear on rack before stepping in'}
@@ -144,14 +144,14 @@ export const LocationActivityBar: React.FC = () => {
           {!stats.removedShoes ? (
             <button
               onClick={removeShoes}
-              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-2xs transition-all shrink-0 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold shadow-2xs transition-all shrink-0 cursor-pointer"
             >
               Remove Shoes
             </button>
           ) : (
             <button
               onClick={wearShoes}
-              className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-semibold transition-all shrink-0 border border-emerald-300 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] font-semibold transition-all shrink-0 border border-blue-300 cursor-pointer"
             >
               Wear Shoes
             </button>
@@ -235,7 +235,7 @@ export const LocationActivityBar: React.FC = () => {
       {(isExpanded || isMobileModal) && (
         <div className="p-2 sm:p-3 space-y-1.5 sm:space-y-2 bg-slate-50/70 overflow-y-auto max-h-[50vh] sm:max-h-[320px]">
           <div className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-emerald-600" />
+            <Sparkles className="w-3 h-3 text-blue-600" />
             <span>Available Activities ({currentLocData.activities.length})</span>
           </div>
 
@@ -244,7 +244,12 @@ export const LocationActivityBar: React.FC = () => {
             const isExamLocked = act.isExam ? (stats.isLongVacation || (stats.classesAttended || 0) < 3) : false;
             const hasEnergy = act.energyCost === 0 || stats.energy >= act.energyCost;
             const hasCash = act.cashCost === 0 || stats.balance >= act.cashCost;
-            const canDo = !isLockedByRank && !isExamLocked && hasEnergy && hasCash;
+            const isDocLocked =
+              stats.isRegistered &&
+              !stats.documentation_completed &&
+              act.id !== 'drink_water' &&
+              act.id !== 'quick_nap';
+            const canDo = !isLockedByRank && !isExamLocked && hasEnergy && hasCash && !isDocLocked;
 
             return (
               <div
@@ -256,8 +261,13 @@ export const LocationActivityBar: React.FC = () => {
                     <h4 className="text-[11px] sm:text-xs font-bold text-slate-900">
                       {act.title}
                     </h4>
+                    {isDocLocked && (
+                      <span className="text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                        Clearance Req.
+                      </span>
+                    )}
                     {act.isCoursework && (
-                      <span className="text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <span className="text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-bold bg-blue-100 text-blue-800 border border-blue-200">
                         +1 Attended
                       </span>
                     )}
@@ -272,7 +282,7 @@ export const LocationActivityBar: React.FC = () => {
                           stats.isLongVacation
                             ? 'bg-amber-100 text-amber-800 border-amber-200'
                             : (stats.classesAttended || 0) >= 3
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            ? 'bg-blue-100 text-blue-800 border-blue-200'
                             : 'bg-rose-100 text-rose-800 border-rose-200'
                         }`}
                       >
@@ -287,7 +297,7 @@ export const LocationActivityBar: React.FC = () => {
                       <span
                         className={`text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-semibold ${
                           stats.spiritualRank >= act.requiredRank
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
                             : 'bg-rose-100 text-rose-800 border-rose-200'
                         }`}
                       >
@@ -304,7 +314,7 @@ export const LocationActivityBar: React.FC = () => {
                       </span>
                     )}
                     {act.energyGain && act.energyGain > 0 && (
-                      <span className="text-emerald-700 flex items-center gap-0.5 font-bold">
+                      <span className="text-blue-700 flex items-center gap-0.5 font-bold">
                         <Zap className="w-2.5 h-2.5" /> +{act.energyGain}⚡
                       </span>
                     )}
@@ -314,7 +324,7 @@ export const LocationActivityBar: React.FC = () => {
                       </span>
                     )}
                     {act.cashGain && act.cashGain > 0 && (
-                      <span className="text-emerald-700 flex items-center gap-0.5 font-bold">
+                      <span className="text-blue-700 flex items-center gap-0.5 font-bold">
                         <Coins className="w-2.5 h-2.5" /> +₦{act.cashGain.toLocaleString()}
                       </span>
                     )}
@@ -337,15 +347,19 @@ export const LocationActivityBar: React.FC = () => {
                 </div>
 
                 <button
-                  disabled={!canDo}
+                  disabled={!canDo && !isDocLocked}
                   onClick={() => performActivity(act)}
                   className={`shrink-0 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
-                    canDo
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs active:scale-95'
+                    isDocLocked
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-2xs active:scale-95'
+                      : canDo
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-2xs active:scale-95'
                       : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                   }`}
                 >
-                  {isExamLocked
+                  {isDocLocked
+                    ? 'Clearance Req.'
+                    : isExamLocked
                     ? stats.isLongVacation
                       ? 'On Vacation'
                       : 'Need 3 Classes'
@@ -412,7 +426,7 @@ export const LocationActivityBar: React.FC = () => {
             onTouchStart={(e) => e.stopPropagation()}
             className="px-3.5 py-1.5 rounded-full bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl text-xs font-bold text-slate-800 flex items-center gap-1.5 active:scale-95 transition-transform cursor-pointer"
           >
-            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+            <MapPin className="w-3.5 h-3.5 text-blue-600" />
             <span>{currentLocData.name} ({currentLocData.activities.length} Actions)</span>
           </button>
         </div>

@@ -119,6 +119,7 @@ export interface PlayerStats {
   gpa: number | null;
   classesAttended: number; // 0 to 3 for the active semester
   examPrep?: number; // 0 to 100% exam preparation
+  completedLessonIds?: string[]; // IDs of completed departmental lessons
   currentLevel: 100 | 200 | 300 | 400;
   currentSemester: 1 | 2;
   calendarSeason: 'semester_1' | 'semester_2' | 'long_vacation';

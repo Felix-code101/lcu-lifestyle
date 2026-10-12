@@ -6,9 +6,6 @@ import {
   Sparkles,
   Zap,
   GraduationCap,
-  ChevronDown,
-  ChevronUp,
-  Map,
   Smile,
   Coins,
 } from 'lucide-react';
@@ -29,7 +26,7 @@ export const LocationActivityBar: React.FC = () => {
   } = useGame();
 
   // Collapsible Accordion / Minimize Toggle state
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [collapsed, setCollapsed] = useState<boolean>(false);
 
   // Keep private room view (home_hostel) and campus map completely clean and unobstructed
   if (currentLocation === 'campus_map' || currentLocation === 'home_hostel') return null;
@@ -48,22 +45,21 @@ export const LocationActivityBar: React.FC = () => {
   // 1. Refined Light Academic Card (Lecture Theatre)
   // =========================================================================
   const renderAcademicCard = () => (
-    <div className="flex flex-col p-4 sm:p-5 text-slate-800 transition-all duration-300 ease-in-out">
+    <div className="flex flex-col text-slate-800 transition-all duration-300 ease-in-out">
       {/* Top Header Row (Always visible) */}
-      <div className="flex items-start justify-between gap-2.5">
-        <div className="flex items-start gap-2.5 min-w-0">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="flex items-center gap-2 min-w-0">
           {/* Badge: 🎓 LCU (light amber badge) */}
-          <span className="bg-amber-100 text-amber-800 border border-amber-200 font-semibold text-xs px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 shadow-2xs">
-            <span>🎓</span>
-            <span>LCU</span>
+          <span className="bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold px-2 py-0.5 rounded-full shrink-0">
+            🎓 LCU
           </span>
           <div className="min-w-0">
             {/* Title: [Department Name] */}
-            <h3 className="text-slate-900 font-bold text-base tracking-tight truncate leading-tight">
-              {stats.department || 'Computer Science'}
+            <h3 className="font-bold text-slate-900 text-sm leading-tight truncate">
+              {stats.department || 'Mass Communication'}
             </h3>
-            {/* Subtitle: 200L · Semester 1 · CGPA... */}
-            <p className="text-slate-500 font-medium text-xs mt-0.5 truncate">
+            {/* Subtitle: 100L · Semester 1 · CGPA... */}
+            <p className="text-slate-500 font-medium text-xs truncate">
               {stats.currentLevel || 100}L · Semester {stats.currentSemester || 1} · CGPA{' '}
               {stats.cgpa !== null ? stats.cgpa.toFixed(2) : '0.00'}
             </p>
@@ -74,38 +70,37 @@ export const LocationActivityBar: React.FC = () => {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => setActiveTab('map')}
-            title="Open Campus Map"
-            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+            title="Campus Map"
+            className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
           >
-            <Map className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline font-semibold">Map</span>
+            Map
           </button>
           <button
-            onClick={() => setIsCollapsed((prev) => !prev)}
-            aria-label={isCollapsed ? 'Expand card' : 'Collapse card'}
-            title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
-            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer flex items-center justify-center"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand card' : 'Collapse card'}
+            title={collapsed ? 'Expand card' : 'Collapse card'}
+            className="p-1 rounded-full hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer flex items-center justify-center w-7 h-7"
           >
-            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            <span className="text-sm font-bold block">{collapsed ? '⌄' : '⌃'}</span>
           </button>
         </div>
       </div>
 
       {/* Collapsible Body */}
-      {!isCollapsed && (
-        <div className="mt-3.5 space-y-3 transition-all duration-300 ease-in-out">
+      {!collapsed && (
+        <div className="mt-2 space-y-3 transition-all duration-300 ease-in-out">
           {/* Exam Progress Indicator */}
           <div className="space-y-1.5">
             {/* Thin rounded progress bar with golden/yellow fill */}
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200 shadow-inner">
               <div
-                className="bg-gradient-to-r from-amber-400 to-yellow-400 h-full rounded-full transition-all duration-500 shadow-2xs"
+                className="bg-gradient-to-r from-amber-400 to-yellow-400 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(100, Math.max(0, examPrep))}%` }}
               />
             </div>
 
-            {/* Status text beneath: Exam prep [X]% · classes [attended]/3 · Attend [3 - attended] more lectures or tutorials first 📝 */}
-            <p className="text-slate-600 text-xs font-medium leading-relaxed">
+            {/* Status note */}
+            <p className="text-slate-600 text-xs">
               {classesAttended >= 3 ? (
                 <span className="text-emerald-700 font-semibold flex items-center gap-1">
                   Exam prep {examPrep}% · classes 3/3 · Clearance ready! You can now sit for the semester examination. 🎓
@@ -174,7 +169,7 @@ export const LocationActivityBar: React.FC = () => {
             {/* Left Button: 🖥️ Student portal */}
             <button
               onClick={() => setIsStudentPortalModalOpen(true)}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-medium rounded-xl py-2.5 px-3 sm:px-4 text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold border border-slate-200 rounded-xl py-2.5 px-3 text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-xs"
             >
               <span>🖥️</span>
               <span>Student portal</span>
@@ -183,7 +178,7 @@ export const LocationActivityBar: React.FC = () => {
             {/* Right Button: 🎓 Short Courses */}
             <button
               onClick={() => setIsShortCoursesModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-sm py-2.5 px-3 sm:px-4 text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md rounded-xl py-2.5 px-3 text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
             >
               <span>🎓</span>
               <span>Short Courses</span>
@@ -198,7 +193,7 @@ export const LocationActivityBar: React.FC = () => {
                 const act = currentLocData.activities.find((a) => a.id === 'tutor_100l');
                 if (act) performActivity(act);
               }}
-              className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs flex items-center justify-between transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs flex items-center justify-between transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm">💼</span>
@@ -242,25 +237,24 @@ export const LocationActivityBar: React.FC = () => {
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => setActiveTab('map')}
-            title="Open Campus Map"
-            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs flex items-center gap-1 transition-colors cursor-pointer"
+            title="Campus Map"
+            className="p-1 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
           >
-            <Map className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline font-semibold">Map</span>
+            Map
           </button>
           <button
-            onClick={() => setIsCollapsed((prev) => !prev)}
-            aria-label={isCollapsed ? 'Expand card' : 'Collapse card'}
-            title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
-            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors cursor-pointer flex items-center justify-center"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'Expand card' : 'Collapse card'}
+            title={collapsed ? 'Expand card' : 'Collapse card'}
+            className="p-1 rounded-full hover:bg-slate-100 text-slate-500 transition-colors cursor-pointer flex items-center justify-center w-7 h-7"
           >
-            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            <span className="text-sm font-bold block">{collapsed ? '⌄' : '⌃'}</span>
           </button>
         </div>
       </div>
 
       {/* Collapsible Body */}
-      {!isCollapsed && (
+      {!collapsed && (
         <div className="flex flex-col transition-all duration-300 ease-in-out">
           {/* Mosque Cultural Norm: Shoe Rack Prompt */}
           {currentLocation === 'mosque' && (
@@ -454,9 +448,9 @@ export const LocationActivityBar: React.FC = () => {
     <div
       onPointerDown={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
-      className="fixed left-1/2 -translate-x-1/2 top-16 md:top-20 z-40 w-[92%] max-w-md pointer-events-auto animate-in fade-in zoom-in-95 duration-200"
+      className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md pointer-events-auto"
     >
-      <div className="bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-xl rounded-3xl overflow-hidden transition-all duration-300 ease-in-out">
+      <div className="bg-white/95 backdrop-blur-md rounded-3xl p-4 shadow-2xl border border-slate-200 text-slate-800 transition-all duration-300 ease-in-out">
         {currentLocation === 'lecture_theatre'
           ? renderAcademicCard()
           : renderLocationCard()}

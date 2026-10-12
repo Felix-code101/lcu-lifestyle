@@ -623,9 +623,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsMusicRequestModalOpen(false);
   }, [activeTab]);
 
-  // Persistent room items per location
-  const [locationItemsMap, setLocationItemsMap] = useState<Record<GameLocation, RoomItem[]>>({
-    ...DEFAULT_LOCATION_ITEMS,
+  // Persistent room items per location (isolated per student instance)
+  const [locationItemsMap, setLocationItemsMap] = useState<Record<GameLocation, RoomItem[]>>(() => {
+    const base = { ...DEFAULT_LOCATION_ITEMS };
+    try {
+      const savedProfile = localStorage.getItem('lu_player_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed.matricNo) {
+          const cachedItems = localStorage.getItem(`lu_placed_items_${parsed.matricNo}`);
+          if (cachedItems) {
+            const items = JSON.parse(cachedItems);
+            if (Array.isArray(items) && items.length > 0) {
+              base.home_hostel = items;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return base;
   });
 
   const roomItems =
@@ -785,9 +803,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (account.customization) {
         setPlayerCustomization(account.customization);
       }
+      if (
+        account.department === 'Medicine and Surgery (MBBS)' ||
+        account.faculty?.includes('Clinical Sciences')
+      ) {
+        setLastVisitedLandmarkId('medical_centre');
+      }
       addToast(`🎓 Welcome back to Liids University, ${account.username}!`, 'success');
     },
-    [addToast, setPlayerCustomization]
+    [addToast, setPlayerCustomization, setLastVisitedLandmarkId]
   );
 
   const evictRoommate = useCallback(async () => {
@@ -826,6 +850,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [stats.matricNo]);
 
   const signOutStudent = useCallback(() => {
+    setLocationItemsMap({ ...DEFAULT_LOCATION_ITEMS });
     setStats((prev) => {
       const reset: PlayerStats = {
         ...prev,
@@ -995,6 +1020,94 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [stats.matricNo, addToast]);
 
+  // Query Supabase placed_items table and roommate state for currentUser.matric_no
+  useEffect(() => {
+    if (!stats.matricNo || !stats.isRegistered) return;
+    let isCancelled = false;
+
+    async function syncIsolatedStudentRoom() {
+      const currentMatric = stats.matricNo;
+      const localCacheKey = `lu_placed_items_${currentMatric}`;
+
+      // 1. Instant recovery from local cache
+      try {
+        const cached = localStorage.getItem(localCacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLocationItemsMap((prev) => ({
+              ...prev,
+              home_hostel: parsed,
+            }));
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2. Query Supabase placed_items strictly for this student instance
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('placed_items')
+            .select('*')
+            .eq('student_id', currentMatric);
+
+          if (!error && Array.isArray(data) && data.length > 0 && !isCancelled) {
+            const mapped: RoomItem[] = data.map((row: any) => ({
+              id: String(row.id || `item_${row.item_id || Math.random()}`),
+              name: row.name || row.item_name || 'Placed Furniture',
+              type: row.type || row.item_type || 'chair',
+              x: Number(row.x) || 0,
+              z: Number(row.z) || 0,
+              rotation: Number(row.rotation) || 0,
+              color: row.color || '#2563eb',
+            }));
+
+            setLocationItemsMap((prev) => ({
+              ...prev,
+              home_hostel: mapped,
+            }));
+
+            try {
+              localStorage.setItem(localCacheKey, JSON.stringify(mapped));
+            } catch {
+              // ignore
+            }
+          }
+        } catch {
+          // Gracefully handled if placed_items table pending in remote Postgres
+        }
+
+        // 3. Query roommate state from Supabase
+        try {
+          const { data, error } = await supabase
+            .from('students')
+            .select('roommate_evicted, roommate_name, assigned_hostel, gender')
+            .eq('matric_no', currentMatric)
+            .maybeSingle();
+
+          if (!error && data && !isCancelled) {
+            setStats((prev) => ({
+              ...prev,
+              roommateEvicted: data.roommate_evicted ?? prev.roommateEvicted,
+              roommateName: data.roommate_name || prev.roommateName,
+              assignedHostel: data.assigned_hostel || prev.assignedHostel,
+              gender: data.gender || prev.gender,
+            }));
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    syncIsolatedStudentRoom();
+    return () => {
+      isCancelled = true;
+    };
+  }, [stats.matricNo, stats.isRegistered]);
+
   // Auto-Dismiss Modals on Bottom Navigation Tab Change
   useEffect(() => {
     // Reset any active sub-modals or placement tools when changing main tabs
@@ -1097,10 +1210,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const applyTransitEffects = useCallback(
     (mode: TransitMode, destinationName: string) => {
       if (mode === 'trek') {
+        let appliedDrain = 4;
         setStats((prev) => {
-          // Trekking drains -20% Energy, reduced with fitness training
-          const staminaDrainReduction = Math.min(8, (prev.fitnessLevel - 1) * 2);
-          const energyDrain = Math.max(10, 20 - staminaDrainReduction);
+          // Trekking drains 3-5% Energy, reduced with fitness training
+          const staminaDrainReduction = Math.min(2, Math.floor((prev.fitnessLevel - 1) * 0.5));
+          const energyDrain = Math.max(3, 5 - staminaDrainReduction);
+          appliedDrain = energyDrain;
           const newEnergy = Math.max(0, prev.energy - energyDrain);
           let newXp = prev.fitnessXp + 15;
           let newLevel = prev.fitnessLevel;
@@ -1132,7 +1247,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             mood: Math.min(100, prev.mood + 4),
           };
         });
-        addToast(`🚶 Trekked to ${destinationName}! (-20%⚡ Energy, +15 Fitness XP)`, 'success');
+        addToast(`🚶 Trekked to ${destinationName}! (-${appliedDrain}%⚡ Energy, +15 Fitness XP)`, 'success');
       } else {
         // Keke Napep costs ₦250, -2% Energy, 0 Fitness XP
         setStats((prev) => ({
@@ -1170,7 +1285,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const targetInfo = CAMPUS_LOCATIONS.find((l) => l.id === target);
       const isFromCampusMap = currentLocation === 'campus_map';
-      const energyCost = isFromCampusMap ? 0 : (targetInfo?.energyCost || 5);
+      const energyCost = isFromCampusMap ? 0 : (targetInfo?.energyCost || 3);
       const travelMins = isFromCampusMap ? 0 : (targetInfo?.travelMinutes || 10);
 
       // Check if student has sufficient stamina to trek/commute (skip check if already navigated on campus map)
@@ -1956,32 +2071,129 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { verdict, penaltyDesc };
   }, [addToast]);
 
-  const addItemToRoom = useCallback((item: Omit<RoomItem, 'id'>) => {
-    const id = 'item_' + Date.now();
-    setLocationItemsMap((prev) => ({
-      ...prev,
-      [currentLocation]: [...(prev[currentLocation] || []), { ...item, id }],
-    }));
-    addToast(`Placed ${item.name} in current room!`, 'success');
-  }, [currentLocation, addToast]);
+  const addItemToRoom = useCallback(
+    (item: Omit<RoomItem, 'id'>) => {
+      const id = 'item_' + Date.now();
+      const newItem: RoomItem = { ...item, id };
 
-  const removeItemFromRoom = useCallback((id: string) => {
-    setLocationItemsMap((prev) => ({
-      ...prev,
-      [currentLocation]: (prev[currentLocation] || []).filter((i) => i.id !== id),
-    }));
-    addToast('Item removed from room.', 'info');
-  }, [currentLocation, addToast]);
+      setLocationItemsMap((prev) => {
+        const nextItems = [...(prev[currentLocation] || []), newItem];
+        if (currentLocation === 'home_hostel' && stats.matricNo) {
+          try {
+            localStorage.setItem(`lu_placed_items_${stats.matricNo}`, JSON.stringify(nextItems));
+          } catch {
+            // ignore
+          }
+        }
+        return {
+          ...prev,
+          [currentLocation]: nextItems,
+        };
+      });
 
-  const rotateItemInRoom = useCallback((id: string) => {
-    setLocationItemsMap((prev) => ({
-      ...prev,
-      [currentLocation]: (prev[currentLocation] || []).map((i) =>
-        i.id === id ? { ...i, rotation: (i.rotation + Math.PI / 2) % (Math.PI * 2) } : i
-      ),
-    }));
-    addToast('Item rotated 90°', 'info');
-  }, [currentLocation, addToast]);
+      // Persist to Supabase placed_items table using student_id
+      if (currentLocation === 'home_hostel' && stats.matricNo && supabase) {
+        Promise.resolve(
+          supabase.from('placed_items').insert({
+            id,
+            student_id: stats.matricNo,
+            type: item.type,
+            name: item.name,
+            x: item.x,
+            z: item.z,
+            rotation: item.rotation,
+            color: item.color,
+          })
+        )
+          .then(({ error }: any) => {
+            if (error) {
+              console.warn('Note: Supabase placed_items insert note:', error.message);
+            }
+          })
+          .catch(() => {});
+      }
+
+      addToast(`Placed ${item.name} in current room!`, 'success');
+    },
+    [currentLocation, stats.matricNo, addToast]
+  );
+
+  const removeItemFromRoom = useCallback(
+    (id: string) => {
+      setLocationItemsMap((prev) => {
+        const nextItems = (prev[currentLocation] || []).filter((i) => i.id !== id);
+        if (currentLocation === 'home_hostel' && stats.matricNo) {
+          try {
+            localStorage.setItem(`lu_placed_items_${stats.matricNo}`, JSON.stringify(nextItems));
+          } catch {
+            // ignore
+          }
+        }
+        return {
+          ...prev,
+          [currentLocation]: nextItems,
+        };
+      });
+
+      // Persist deletion to Supabase placed_items table using student_id
+      if (currentLocation === 'home_hostel' && stats.matricNo && supabase) {
+        Promise.resolve(
+          supabase
+            .from('placed_items')
+            .delete()
+            .eq('id', id)
+            .eq('student_id', stats.matricNo)
+        )
+          .then(() => {})
+          .catch(() => {});
+      }
+
+      addToast('Item removed from room.', 'info');
+    },
+    [currentLocation, stats.matricNo, addToast]
+  );
+
+  const rotateItemInRoom = useCallback(
+    (id: string) => {
+      let newRot = 0;
+      setLocationItemsMap((prev) => {
+        const nextItems = (prev[currentLocation] || []).map((i) => {
+          if (i.id === id) {
+            newRot = (i.rotation + Math.PI / 2) % (Math.PI * 2);
+            return { ...i, rotation: newRot };
+          }
+          return i;
+        });
+        if (currentLocation === 'home_hostel' && stats.matricNo) {
+          try {
+            localStorage.setItem(`lu_placed_items_${stats.matricNo}`, JSON.stringify(nextItems));
+          } catch {
+            // ignore
+          }
+        }
+        return {
+          ...prev,
+          [currentLocation]: nextItems,
+        };
+      });
+
+      // Persist rotation update to Supabase placed_items table using student_id
+      if (currentLocation === 'home_hostel' && stats.matricNo && supabase) {
+        Promise.resolve(
+          supabase
+            .from('placed_items')
+            .update({ rotation: newRot })
+            .eq('id', id)
+            .eq('student_id', stats.matricNo)
+        )
+          .then(() => {})
+          .catch(() => {});
+      }
+
+      addToast('Item rotated 90°', 'info');
+    },
+    [currentLocation, stats.matricNo, addToast]
+  );
 
   const claimQuest = useCallback((id: string) => {
     setQuests((prev) =>
@@ -2264,20 +2476,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           newDay += 1;
         }
 
-        // Slight natural energy drain every 5 game minutes
-        const energyDrain = newMin % 5 === 0 ? 1 : 0;
-
         return {
           ...prev,
           inGameMinutes: newMin,
           inGameHours: newHour,
           day: newDay,
-          energy: Math.max(0, prev.energy - energyDrain),
         };
       });
     }, 1000); // 1 real sec = 1 in-game minute
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Passive Energy Regeneration: +1% every 30 real-time seconds while idle/exploring
+  useEffect(() => {
+    const regenInterval = setInterval(() => {
+      setStats((prev) => {
+        if (!prev.isRegistered || prev.isCollapsed || prev.energy >= prev.maxEnergy) {
+          return prev;
+        }
+        return {
+          ...prev,
+          energy: Math.min(prev.maxEnergy, prev.energy + 1),
+        };
+      });
+    }, 30000);
+
+    return () => clearInterval(regenInterval);
   }, []);
 
   return (

@@ -123,7 +123,7 @@ function GameRoot() {
           default:
             return (
               <>
-                <IsometricCanvas remotePlayers={remotePlayers} />
+                <IsometricCanvas remotePlayers={currentLocation === 'home_hostel' ? [] : remotePlayers} />
                 <LocationActivityBar />
                 <HostelSidebarNav />
               </>

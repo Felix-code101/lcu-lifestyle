@@ -167,11 +167,20 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     syncCharacters(currentLocation, playerCustomization);
   }, [currentLocation, playerCustomization, syncCharacters]);
 
-  // Sync Remote Multiplayer Characters in current location
+  // Sync Remote Multiplayer Characters in current location (Hostel room is private client instance)
   useEffect(() => {
     if (!remotePlayersGroupRef.current) return;
     const group = remotePlayersGroupRef.current;
     const currentMap = remotePlayerModelsRef.current;
+
+    // Personal Isolated Room Instance: Never render remote players in hostel room
+    if (currentLocation === 'home_hostel') {
+      currentMap.forEach((entry) => {
+        group.remove(entry.model.group);
+      });
+      currentMap.clear();
+      return;
+    }
 
     const activeIds = new Set(remotePlayers.map((p) => p.id));
     currentMap.forEach((entry, id) => {
@@ -420,8 +429,13 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     wallsGroup.add(leftWall);
 
     const backWallGeo = new THREE.BoxGeometry(18.0 + wallThick, wallHeight, wallThick);
-    const pastelBlueWallMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.85 });
-    const backWall = new THREE.Mesh(backWallGeo, pastelBlueWallMat);
+    const isFemale = stats.gender === 'female';
+    const backWallColor =
+      currentLocation === 'home_hostel'
+        ? (isFemale ? '#cbd5e1' : '#94a3b8')
+        : '#94a3b8';
+    const backWallMat = new THREE.MeshStandardMaterial({ color: backWallColor, roughness: 0.85 });
+    const backWall = new THREE.Mesh(backWallGeo, backWallMat);
     backWall.position.set(-wallThick / 2, wallHeight / 2, -9 - wallThick / 2);
     backWall.receiveShadow = true;
     backWall.castShadow = true;
@@ -607,26 +621,28 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
         }
       }
 
-      // 3. Remote Multiplayer Peer Student Badges & Animation
-      remotePlayerModelsRef.current.forEach(({ model, player }) => {
-        model.update(delta, elapsed);
-        tempVec.set(model.group.position.x, 3.4, model.group.position.z);
-        tempVec.project(camera);
-        if (tempVec.z <= 1.0) {
-          newBadges.push({
-            id: `remote_${player.id}`,
-            label: player.username,
-            role: `${player.department}`,
-            icon: player.status === 'nepo' ? '👑' : '🎒',
-            statusBadge: player.status,
-            screenX: (tempVec.x * 0.5 + 0.5) * containerW,
-            screenY: (-tempVec.y * 0.5 + 0.5) * containerH,
-            visible: true,
-            isRemotePlayer: true,
-            remotePlayer: player,
-          });
-        }
-      });
+      // 3. Remote Multiplayer Peer Student Badges & Animation (Exempt in private hostel room)
+      if (currentLocation !== 'home_hostel') {
+        remotePlayerModelsRef.current.forEach(({ model, player }) => {
+          model.update(delta, elapsed);
+          tempVec.set(model.group.position.x, 3.4, model.group.position.z);
+          tempVec.project(camera);
+          if (tempVec.z <= 1.0) {
+            newBadges.push({
+              id: `remote_${player.id}`,
+              label: player.username,
+              role: `${player.department}`,
+              icon: player.status === 'nepo' ? '👑' : '🎒',
+              statusBadge: player.status,
+              screenX: (tempVec.x * 0.5 + 0.5) * containerW,
+              screenY: (-tempVec.y * 0.5 + 0.5) * containerH,
+              visible: true,
+              isRemotePlayer: true,
+              remotePlayer: player,
+            });
+          }
+        });
+      }
 
       setScreenBadges(newBadges);
 

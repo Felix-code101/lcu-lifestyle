@@ -128,7 +128,7 @@ export const HostelSidebarNav: React.FC = () => {
                   Hostel Life Hub
                 </h3>
                 <span className="text-[10px] sm:text-[11px] text-emerald-600 font-semibold truncate block mt-0.5">
-                  Liids University (LU) • Ibadan
+                  {stats.assignedHostel || (stats.gender === 'female' ? "Queen's Hall (Female Wing)" : "Emerald Hall (Boys Wing)")}
                 </span>
               </div>
             </div>

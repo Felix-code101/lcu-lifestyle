@@ -130,7 +130,15 @@ const ACCESSORIES: { id: AccessoryType; label: string; icon: string }[] = [
 ];
 
 export const MatriculationModal: React.FC = () => {
-  const { stats, registerStudentProfile, loginStudentProfile, setPlayerCustomization, addToast } = useGame();
+  const {
+    stats,
+    registerStudentProfile,
+    loginStudentProfile,
+    setPlayerCustomization,
+    addToast,
+    setLastVisitedLandmarkId,
+    navigateToLocation,
+  } = useGame();
 
   // Mode: 'signin' | 'register_info' | 'fate_roll' | 'customize'
   const [authMode, setAuthMode] = useState<'signin' | 'register'>('signin');
@@ -301,6 +309,13 @@ export const MatriculationModal: React.FC = () => {
       const match = await authenticateStudent(cleanId, cleanPass);
       if (match) {
         loginStudentProfile(match);
+        if (
+          match.department === 'Medicine and Surgery (MBBS)' ||
+          match.faculty?.includes('Clinical Sciences')
+        ) {
+          setLastVisitedLandmarkId('medical_centre');
+          navigateToLocation('medical_centre');
+        }
       } else {
         setLoginError('Invalid credentials. Check your username/matric number and password.');
       }
@@ -473,6 +488,15 @@ export const MatriculationModal: React.FC = () => {
       balance: initialBalance,
       mood: initialMood,
     });
+
+    if (
+      department === 'Medicine and Surgery (MBBS)' ||
+      selectedFaculty.includes('Clinical Sciences')
+    ) {
+      setLastVisitedLandmarkId('medical_centre');
+      navigateToLocation('medical_centre');
+      addToast('🏥 Welcome to College of Medicine / Medical Complex!', 'info');
+    }
 
     if (rollResult === 'nepo') {
       addToast(`👑 Welcome to Liids University, Scholar! You rolled NEPO BABY status with ₦250,000!`, 'success');

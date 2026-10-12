@@ -49,14 +49,22 @@ export const LocationActivityBar: React.FC = () => {
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-wide truncate">
-                {currentLocData.name}
+                {currentLocation === 'home_hostel'
+                  ? stats.assignedHostel || (stats.gender === 'female' ? "Queen's Hall (Hostel)" : 'Emerald Hall (Hostel)')
+                  : currentLocData.name}
               </h3>
               <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-mono shrink-0">
-                {currentLocData.tag}
+                {currentLocation === 'home_hostel'
+                  ? stats.gender === 'female' ? 'Female Wing' : 'Boys Wing'
+                  : currentLocData.tag}
               </span>
             </div>
             <p className="text-[10px] sm:text-[11px] text-emerald-700 font-medium truncate">
-              {currentLocData.subtitle}
+              {currentLocation === 'home_hostel'
+                ? stats.gender === 'female'
+                  ? "Queen's Hall • Emerald Female Wing"
+                  : 'Boys Wing • Room 204'
+                : currentLocData.subtitle}
             </p>
           </div>
         </div>

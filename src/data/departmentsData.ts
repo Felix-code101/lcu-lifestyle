@@ -14,8 +14,9 @@ export const LU_FACULTIES: FacultyInfo[] = [
     ],
   },
   {
-    faculty: 'Faculty of Basic Medical & Health Sciences',
+    faculty: 'Faculty of Basic Medical Sciences / Faculty of Clinical Sciences',
     departments: [
+      'Medicine and Surgery (MBBS)',
       'Nursing Science',
       'Medical Laboratory Science',
       'Public Health',

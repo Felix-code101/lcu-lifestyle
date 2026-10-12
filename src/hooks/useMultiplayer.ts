@@ -59,9 +59,9 @@ export function useMultiplayer({
     refreshStudentsList();
   }, [refreshStudentsList]);
 
-  // Broadcast presence
+  // Broadcast presence (Hostel room is private; broadcasts reserved for shared campus scenes)
   const broadcastPresence = useCallback(() => {
-    if (!isRegistered || !username) return;
+    if (!isRegistered || !username || currentLocation === 'home_hostel') return;
 
     broadcastMessage({
       type: 'PRESENCE',
@@ -84,14 +84,14 @@ export function useMultiplayer({
     });
   }, [isRegistered, username, localId, matricNo, department, academicLevel, status, currentLocation, customization]);
 
-  // Broadcast movement (throttled to ~100ms)
+  // Broadcast movement (throttled to ~100ms, excluded in private hostel room)
   const broadcastMove = useCallback(
     (position: [number, number, number], rotation: number, isWalking: boolean) => {
       localPosRef.current = position;
       localRotRef.current = rotation;
       localWalkingRef.current = isWalking;
 
-      if (!isRegistered || !username) return;
+      if (!isRegistered || !username || currentLocation === 'home_hostel') return;
 
       const now = Date.now();
       if (now - lastBroadcastTimeRef.current >= 90) {
@@ -198,9 +198,9 @@ export function useMultiplayer({
     };
   }, [localId, customization, onStatusChangeByAdmin, onCampusAnnouncement, refreshStudentsList]);
 
-  // Periodic heartbeat presence broadcast (every 4 seconds)
+  // Periodic heartbeat presence broadcast (every 4 seconds, skipped in private hostel room)
   useEffect(() => {
-    if (!isRegistered) return;
+    if (!isRegistered || currentLocation === 'home_hostel') return;
     broadcastPresence();
 
     const interval = setInterval(() => {
@@ -217,7 +217,7 @@ export function useMultiplayer({
         timestamp: Date.now(),
       });
     };
-  }, [broadcastPresence, isRegistered, localId]);
+  }, [broadcastPresence, isRegistered, localId, currentLocation]);
 
   // Prune disconnected/stale players older than 14 seconds
   useEffect(() => {
@@ -245,10 +245,11 @@ export function useMultiplayer({
     return () => clearInterval(pruneInterval);
   }, []);
 
-  // Filter remote players to those currently in the same location
-  const remotePlayersInCurrentLocation = Array.from(remotePlayersMap.values()).filter(
-    (p) => p.location === currentLocation
-  );
+  // Filter remote players to those currently in the same location (Hostel room is strictly private client instance)
+  const remotePlayersInCurrentLocation =
+    currentLocation === 'home_hostel'
+      ? []
+      : Array.from(remotePlayersMap.values()).filter((p) => p.location === currentLocation);
 
   // Admin action: change status of any student
   const changeStudentStatus = useCallback(

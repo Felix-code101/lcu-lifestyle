@@ -25,7 +25,7 @@ export const TransitModal: React.FC<TransitModalProps> = ({
 }) => {
   const { stats } = useGame();
 
-  const canTrek = stats.energy >= 20;
+  const canTrek = stats.energy >= 4;
   const canBoardKeke = stats.balance >= 250 && stats.energy >= 2;
 
   return (
@@ -123,7 +123,7 @@ export const TransitModal: React.FC<TransitModalProps> = ({
                   <span className="flex items-center gap-1">
                     <Zap className="w-3 h-3 text-rose-500" /> Energy
                   </span>
-                  <span className="font-bold font-mono">-20% ⚡</span>
+                  <span className="font-bold font-mono">-4% ⚡</span>
                 </div>
                 <div className="flex items-center justify-between text-orange-600 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-100 font-medium">
                   <span className="flex items-center gap-1">

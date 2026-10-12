@@ -19,6 +19,7 @@ import type {
 } from '../types/game';
 import { CAMPUS_LOCATIONS, DEFAULT_LOCATION_ITEMS, getDefaultHostelItems } from '../data/campusData';
 import { DEFAULT_PLAYER_CUSTOMIZATION } from '../data/npcData';
+import type { ShortCourse } from '../data/coursesData';
 import {
   supabase,
   type StudentAccount,
@@ -298,7 +299,12 @@ interface GameContextType {
   takeProjectGig: (title: string, payout: number, energyCost: number, knowledgeGain: number) => boolean;
   attemptTheft: (locationName: string) => { success: boolean; cashStolen: number; itemStolen?: string; caught: boolean };
 
-  // Exam Hall & Disciplinary Tribunal
+  // Exam Hall & Departmental Short Courses & Student Portal
+  takeCourseLecture: (course: ShortCourse) => boolean;
+  isShortCoursesModalOpen: boolean;
+  setIsShortCoursesModalOpen: (val: boolean) => void;
+  isStudentPortalModalOpen: boolean;
+  setIsStudentPortalModalOpen: (val: boolean) => void;
   isExamModalOpen: boolean;
   setIsExamModalOpen: (val: boolean) => void;
   isTribunalModalOpen: boolean;
@@ -450,6 +456,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cgpa: null, // Pending until first exam
       gpa: null,
       classesAttended: 0,
+      examPrep: 0,
       currentLevel: 100,
       currentSemester: 1,
       calendarSeason: 'semester_1',
@@ -522,6 +529,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cgpa: effectiveCgpa,
             gpa: parsed.gpa ?? null,
             classesAttended: parsed.classesAttended ?? 0,
+            examPrep: parsed.examPrep ?? Math.min(100, Math.round(((parsed.classesAttended || 0) / 3) * 100)),
             currentLevel: parsed.currentLevel ?? 100,
             currentSemester: parsed.currentSemester ?? 1,
             calendarSeason: parsed.calendarSeason ?? 'semester_1',
@@ -584,6 +592,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isElectionsModalOpen, setIsElectionsModalOpen] = useState<boolean>(false);
   const [isExamModalOpen, setIsExamModalOpen] = useState<boolean>(false);
   const [isTribunalModalOpen, setIsTribunalModalOpen] = useState<boolean>(false);
+  const [isShortCoursesModalOpen, setIsShortCoursesModalOpen] = useState<boolean>(false);
+  const [isStudentPortalModalOpen, setIsStudentPortalModalOpen] = useState<boolean>(false);
   const [isHustleModalOpen, setIsHustleModalOpen] = useState<boolean>(false);
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState<boolean>(false);
   const [isBettingModalOpen, setIsBettingModalOpen] = useState<boolean>(false);
@@ -628,6 +638,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsElectionsModalOpen(false);
     setIsExamModalOpen(false);
     setIsTribunalModalOpen(false);
+    setIsShortCoursesModalOpen(false);
+    setIsStudentPortalModalOpen(false);
     setIsHustleModalOpen(false);
     setIsPenaltyModalOpen(false);
     setIsBettingModalOpen(false);
@@ -1972,7 +1984,71 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [stats.energy, stats.balance, stats.disciplinaryStrikes, addToast]);
 
-  // --- Exam Hall & Disciplinary Tribunal ---
+  // --- Exam Hall & Departmental Academic Coursework ---
+  const takeCourseLecture = useCallback(
+    (course: ShortCourse): boolean => {
+      if (stats.isLongVacation) {
+        addToast(
+          '🏖️ Long Vacation Active! Academic lecture halls are currently on break. Hustle holiday gigs, then resume next session.',
+          'warning'
+        );
+        return false;
+      }
+
+      if (stats.energy < course.energyCost) {
+        addToast(
+          `⚡ Low Energy! You need at least ${course.energyCost}⚡ energy to attend ${course.code}. Eat chow or take a quick nap in hostel!`,
+          'warning'
+        );
+        return false;
+      }
+
+      const nextAttendance = Math.min(3, (stats.classesAttended || 0) + 1);
+      const prevPrep = stats.examPrep ?? Math.round(((stats.classesAttended || 0) / 3) * 100);
+      const proportionalBase = Math.round((nextAttendance / 3) * 100);
+      const nextPrep = Math.min(100, Math.max(proportionalBase, prevPrep + course.examPrepGain));
+
+      setStats((prev) => {
+        const nextEnergy = Math.max(0, prev.energy - course.energyCost);
+        const earnedXp = course.xpGain || 15;
+        const nextKnowledge = prev.knowledge + 20;
+
+        const next = {
+          ...prev,
+          energy: nextEnergy,
+          classesAttended: nextAttendance,
+          examPrep: nextPrep,
+          xp: prev.xp + earnedXp,
+          knowledge: nextKnowledge,
+        };
+
+        try {
+          localStorage.setItem('lu_player_profile', JSON.stringify(next));
+        } catch {
+          // ignore
+        }
+
+        return next;
+      });
+
+      if (nextAttendance >= 3) {
+        setTimeout(() => {
+          addToast('Clearance ready! You can now sit for the semester examination.', 'success');
+        }, 150);
+      } else {
+        setTimeout(() => {
+          addToast(
+            `📚 Attended ${course.code} lecture (+${course.examPrepGain}% Exam Prep). (${nextAttendance}/3 classes completed)`,
+            'info'
+          );
+        }, 150);
+      }
+
+      return true;
+    },
+    [stats.isLongVacation, stats.energy, stats.classesAttended, stats.examPrep, addToast]
+  );
+
   const startExamSession = useCallback(() => {
     if (stats.isLongVacation) {
       addToast(
@@ -2058,6 +2134,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       calendarSeason: nextSeason,
       isLongVacation: isFinishingSemester2,
       classesAttended: 0,
+      examPrep: 0,
       completedSemesters: updatedCompleted,
       energy: Math.max(0, prev.energy - 25),
       isTakingExam: false,
@@ -2116,6 +2193,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         calendarSeason: 'semester_1',
         isLongVacation: false,
         classesAttended: 0,
+        examPrep: 0,
         energy: Math.min(prev.maxEnergy, Math.max(prev.energy, 80)),
         mood: Math.min(100, Math.max(prev.mood, 80)),
         level: prev.level + 1,
@@ -2718,6 +2796,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsExamModalOpen,
         isTribunalModalOpen,
         setIsTribunalModalOpen,
+        isShortCoursesModalOpen,
+        setIsShortCoursesModalOpen,
+        isStudentPortalModalOpen,
+        setIsStudentPortalModalOpen,
+        takeCourseLecture,
         startExamSession,
         submitExamLegitimate,
         resumeNextSession,

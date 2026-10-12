@@ -26,6 +26,8 @@ import { StudentUnionScene } from './components/StudentUnionScene';
 import { PenaltyShootoutModal } from './components/PenaltyShootoutModal';
 import { BettingTerminalModal } from './components/BettingTerminalModal';
 import { SenateClearanceModal } from './components/SenateClearanceModal';
+import { ShortCoursesModal } from './components/ShortCoursesModal';
+import { StudentPortalModal } from './components/StudentPortalModal';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { Radio, X } from 'lucide-react';
 
@@ -40,6 +42,10 @@ function GameRoot() {
     playerCustomization,
     setSocioeconomicStatus,
     setIsSenateClearanceModalOpen,
+    isShortCoursesModalOpen,
+    setIsShortCoursesModalOpen,
+    isStudentPortalModalOpen,
+    setIsStudentPortalModalOpen,
     addToast,
   } = useGame();
 
@@ -211,6 +217,18 @@ function GameRoot() {
 
       {/* Senate Building Acceptance & Academic Documentation Clearance Modal */}
       <SenateClearanceModal />
+
+      {/* Dynamic Departmental Short Courses & Micro-Lectures Modal */}
+      <ShortCoursesModal
+        isOpen={isShortCoursesModalOpen}
+        onClose={() => setIsShortCoursesModalOpen(false)}
+      />
+
+      {/* LCU Student Information & Academic Records Portal Modal */}
+      <StudentPortalModal
+        isOpen={isStudentPortalModalOpen}
+        onClose={() => setIsStudentPortalModalOpen(false)}
+      />
     </div>
   );
 }

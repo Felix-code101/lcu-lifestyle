@@ -29,6 +29,7 @@ export const TopBar: React.FC = () => {
     dayNightCycle,
     setDayNightCycle,
     setIsTribunalModalOpen,
+    setIsStudentPortalModalOpen,
   } = useGame();
 
   const [showMobileStats, setShowMobileStats] = useState<boolean>(true);
@@ -300,13 +301,14 @@ export const TopBar: React.FC = () => {
             </div>
 
             {/* Academic Session Calendar & Attendance Pill */}
-            <div
+            <button
+              onClick={() => setIsStudentPortalModalOpen(true)}
               title={
                 stats.isLongVacation
-                  ? 'Annual Long Vacation (July – October). Lecture rooms are closed. Holiday hustles active.'
-                  : `${stats.currentLevel || 100}L Semester ${stats.currentSemester || 1}. Complete 3 lectures/tutorials to unlock Semester Exam!`
+                  ? 'Annual Long Vacation (July – October). Lecture rooms are closed. Click to open Student Portal.'
+                  : `${stats.currentLevel || 100}L Semester ${stats.currentSemester || 1}. Complete 3 lectures/tutorials to unlock Semester Exam! Click to open Student Portal.`
               }
-              className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white border border-slate-200/80 shadow-2xs shrink-0"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white hover:bg-blue-50 border border-slate-200/80 hover:border-blue-300 shadow-2xs shrink-0 cursor-pointer transition-all active:scale-95"
             >
               <span className="text-xs">
                 {stats.isLongVacation ? '🏖️' : '📅'}
@@ -333,7 +335,7 @@ export const TopBar: React.FC = () => {
                   </span>
                 )}
               </div>
-            </div>
+            </button>
 
             {/* Room Assignment Badge */}
             <div

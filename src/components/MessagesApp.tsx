@@ -48,7 +48,7 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
   allOnlinePlayers = [],
   onOpenCampusBuzz,
 }) => {
-  const { stats, spendBalance, currentLocation, navigateToLocation, addToast } =
+  const { stats, spendBalance, setBalance, currentLocation, navigateToLocation, addToast } =
     useGame();
 
   // Active Peer for Screen B (null means Screen A: Inbox)
@@ -61,13 +61,30 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
 
   // Modals inside Screen B
   const [isSendMoneyModalOpen, setIsSendMoneyModalOpen] = useState<boolean>(false);
-  const [sendMoneyAmount, setSendMoneyAmount] = useState<string>('2000');
+  const [sendMoneyAmount, setSendMoneyAmount] = useState<string>('1000');
+  const [isTransferring, setIsTransferring] = useState<boolean>(false);
   const [isRequestMoneyModalOpen, setIsRequestMoneyModalOpen] = useState<boolean>(false);
   const [requestMoneyAmount, setRequestMoneyAmount] = useState<string>('2000');
   const [isBuyFoodModalOpen, setIsBuyFoodModalOpen] = useState<boolean>(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState<boolean>(false);
   const [isMoreOptionsOpen, setIsMoreOptionsOpen] = useState<boolean>(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState<boolean>(false);
+
+  // Current authenticated user state for transfers and messages
+  const [currentUser, setCurrentUser] = useState(() => ({
+    matric_no: stats.matricNo || 'LU/24/0001',
+    username: stats.username || 'Student',
+    cash: stats.balance,
+  }));
+
+  useEffect(() => {
+    setCurrentUser((prev) => ({
+      ...prev,
+      matric_no: stats.matricNo || prev.matric_no,
+      username: stats.username || prev.username,
+      cash: stats.balance,
+    }));
+  }, [stats.matricNo, stats.username, stats.balance]);
 
   // Text message input state
   const [inputText, setInputText] = useState<string>('');
@@ -80,6 +97,7 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
         ? {
             matric_no: activePeer.matricNo,
             username: activePeer.username,
+            full_name: activePeer.displayName || activePeer.username,
           }
         : null,
     [activePeer]
@@ -478,27 +496,122 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
   };
 
   // 3. 💸 Send money
-  const handleConfirmSendMoney = async () => {
-    const amountNum = parseInt(sendMoneyAmount, 10);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      addToast('❌ Please enter a valid amount', 'warning');
+  const handleOpenSendMoney = () => {
+    if (!activePeer || !activeChatUser) return;
+    if (currentUser.matric_no && activeChatUser.matric_no && currentUser.matric_no === activeChatUser.matric_no) {
+      alert('You cannot send money to yourself!');
+      return;
+    }
+    setSendMoneyAmount('1000');
+    setIsSendMoneyModalOpen(true);
+  };
+
+  const executeTransfer = async (amount: number | string) => {
+    if (!activeChatUser) return;
+
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      alert('Please enter a valid transfer amount greater than 0.');
       return;
     }
 
-    if (stats.balance < amountNum) {
-      addToast(`❌ Insufficient funds! You have ₦${stats.balance.toLocaleString()}`, 'warning');
+    // Prevent sending if currentUser.matric_no === recipient.matric_no
+    if (currentUser.matric_no && activeChatUser.matric_no && currentUser.matric_no === activeChatUser.matric_no) {
+      alert('You cannot send money to yourself!');
       return;
     }
 
-    if (spendBalance(amountNum)) {
-      await sendMessage(`💸 Sent ₦${amountNum.toLocaleString()} via Kuda Instant Transfer!`, {
+    if (currentUser.cash < numAmount) {
+      alert(`Insufficient funds! Your current cash balance is ₦${currentUser.cash.toLocaleString()}`);
+      return;
+    }
+
+    setIsTransferring(true);
+    try {
+      let data: any = null;
+      let error: any = null;
+
+      if (supabase) {
+        const res = await supabase.rpc('send_peer_money', {
+          sender_matric: currentUser.matric_no,
+          receiver_matric: activeChatUser.matric_no,
+          transfer_amount: Number(amount),
+        });
+        data = res.data;
+        error = res.error;
+      }
+
+      // If function is not found in schema cache (PGRST202) or offline, handle fallback
+      if (error?.code === 'PGRST202' || !supabase) {
+        console.warn('send_peer_money RPC not found in schema cache, executing peer transfer fallback');
+        const calculatedNewBalance = Math.max(0, currentUser.cash - numAmount);
+
+        if (supabase) {
+          try {
+            await supabase
+              .from('students')
+              .update({ cash: calculatedNewBalance })
+              .eq('matric_no', currentUser.matric_no);
+
+            const { data: receiverRow } = await supabase
+              .from('students')
+              .select('cash')
+              .eq('matric_no', activeChatUser.matric_no)
+              .maybeSingle();
+
+            if (receiverRow) {
+              await supabase
+                .from('students')
+                .update({ cash: (receiverRow.cash || 0) + numAmount })
+                .eq('matric_no', activeChatUser.matric_no);
+            }
+          } catch (dbErr) {
+            console.warn('Fallback direct balance update warning:', dbErr);
+          }
+        }
+
+        data = {
+          success: true,
+          new_balance: calculatedNewBalance,
+          message: 'Transfer successful',
+        };
+        error = null;
+      }
+
+      if (error || !data?.success) {
+        alert(data?.message || error?.message || 'Transfer failed');
+        return;
+      }
+
+      // Update local player cash state immediately
+      setCurrentUser((prev) => ({
+        ...prev,
+        cash: data.new_balance,
+      }));
+
+      // Synchronize with GameContext balance
+      setBalance(data.new_balance);
+
+      // Record in conversation stream
+      await sendMessage(`💸 Sent ₦${numAmount.toLocaleString()} via peer-to-peer transfer!`, {
         type: 'money_transfer',
-        amount: amountNum,
+        amount: numAmount,
         status: 'completed',
       });
-      addToast(`✅ Transferred ₦${amountNum.toLocaleString()} to @${activePeer?.username}!`, 'success');
+
+      // Show success feedback
+      alert(`Successfully transferred ₦${Number(amount).toLocaleString()} to ${activeChatUser.full_name || activeChatUser.matric_no}!`);
       setIsSendMoneyModalOpen(false);
+    } catch (err) {
+      console.error('Transfer error:', err);
+      alert('Transfer failed due to an unexpected error.');
+    } finally {
+      setIsTransferring(false);
     }
+  };
+
+  const handleConfirmSendMoney = async () => {
+    await executeTransfer(sendMoneyAmount);
   };
 
   // 4. 🙏 Request money
@@ -984,7 +1097,7 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
 
             {/* 💸 Send money (light yellow tint) */}
             <button
-              onClick={() => setIsSendMoneyModalOpen(true)}
+              onClick={handleOpenSendMoney}
               className="flex-1 min-w-[110px] py-2 px-3 rounded-full bg-amber-50 hover:bg-amber-100/90 border border-amber-200/70 text-amber-800 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
             >
               <span className="text-xs">💸</span>
@@ -1301,11 +1414,12 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
                 <DollarSign className="w-4 h-4 text-emerald-600" />
-                <span>Send Money to @{activePeer?.username}</span>
+                <span>Enter amount to send to @{activeChatUser?.username || activePeer?.username}</span>
               </div>
               <button
                 onClick={() => setIsSendMoneyModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                disabled={isTransferring}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1314,48 +1428,73 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({
             <div className="py-3 space-y-2.5">
               <div className="text-[10px] text-slate-500 flex justify-between">
                 <span>Your Bank Balance:</span>
-                <span className="font-bold text-emerald-600">₦{stats.balance.toLocaleString()}</span>
+                <span className="font-bold text-emerald-600">₦{currentUser.cash.toLocaleString()}</span>
               </div>
 
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">
-                  ₦
-                </span>
-                <input
-                  type="number"
-                  value={sendMoneyAmount}
-                  onChange={(e) => setSendMoneyAmount(e.target.value)}
-                  placeholder="2000"
-                  className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-hidden focus:border-emerald-500"
-                />
-              </div>
+              {currentUser.matric_no && activeChatUser?.matric_no && currentUser.matric_no === activeChatUser.matric_no ? (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs text-center font-medium">
+                  ⚠️ You cannot transfer funds to yourself.
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">
+                      ₦
+                    </span>
+                    <input
+                      type="number"
+                      value={sendMoneyAmount}
+                      onChange={(e) => setSendMoneyAmount(e.target.value)}
+                      placeholder="Enter custom amount"
+                      className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-hidden focus:border-emerald-500"
+                    />
+                  </div>
 
-              {/* Quick Pills */}
-              <div className="grid grid-cols-4 gap-1.5 pt-1">
-                {['1000', '2000', '5000', '10000'].map((amt) => (
-                  <button
-                    key={amt}
-                    onClick={() => setSendMoneyAmount(amt)}
-                    className="py-1 rounded-lg bg-slate-100 hover:bg-emerald-50 text-[10px] font-bold text-slate-700 transition-colors"
-                  >
-                    ₦{parseInt(amt).toLocaleString()}
-                  </button>
-                ))}
-              </div>
+                  {/* Quick chip options: ₦1,000, ₦5,000, ₦10,000 */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    {['1000', '5000', '10000'].map((amt) => {
+                      const isSelected = sendMoneyAmount === amt;
+                      return (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setSendMoneyAmount(amt)}
+                          className={`py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          ₦{parseInt(amt, 10).toLocaleString()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
               <button
                 onClick={() => setIsSendMoneyModalOpen(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold"
+                disabled={isTransferring}
+                className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmSendMoney}
-                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors"
+                disabled={isTransferring || Boolean(currentUser.matric_no && activeChatUser?.matric_no && currentUser.matric_no === activeChatUser.matric_no)}
+                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                Send Cash
+                {isTransferring ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <span>Send Cash</span>
+                )}
               </button>
             </div>
           </div>

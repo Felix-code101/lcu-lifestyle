@@ -240,6 +240,7 @@ interface GameContextType {
   isTransitioning: boolean;
   stats: PlayerStats;
   addBalance: (amount: number) => void;
+  setBalance: (amount: number) => void;
   spendBalance: (amount: number) => boolean;
   performActivity: (activity: CampusActivity) => void;
   activeTab: NavTab;
@@ -677,6 +678,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }));
     addToast(`+₦${amount.toLocaleString()} received into student account!`, 'success');
   }, [addToast]);
+
+  const setBalance = useCallback((amount: number) => {
+    setStats((prev) => ({
+      ...prev,
+      balance: Math.max(0, amount),
+    }));
+  }, []);
 
   const spendBalance = useCallback((amount: number): boolean => {
     let success = false;
@@ -2513,6 +2521,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isTransitioning,
         stats,
         addBalance,
+        setBalance,
         spendBalance,
         performActivity,
         activeTab,

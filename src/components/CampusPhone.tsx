@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame, ROOM_THEMES } from '../context/GameContext';
 import type { GameLocation } from '../types/game';
 import {
@@ -33,11 +33,13 @@ import {
   VolumeX,
   Music,
   Settings,
+  Clock,
 } from 'lucide-react';
 import { CampusChatApp } from './CampusChatApp';
 import { MessagesApp } from './MessagesApp';
 import type { RemotePlayer } from '../types/game';
 import { soundManager, useAudioSettings } from '../lib/soundManager';
+import { supabase } from '../lib/supabase';
 
 type AppId = 'home' | 'bank' | 'chow' | 'gigs' | 'messages' | 'portal' | 'shuttle' | 'maps' | 'settings' | 'buzz';
 
@@ -99,8 +101,42 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
   const [allowanceClaimed, setAllowanceClaimed] = useState<boolean>(false);
   const [duesPaid, setDuesPaid] = useState<boolean>(false);
 
-  // Completed gig IDs
-  const [completedGigs, setCompletedGigs] = useState<string[]>([]);
+  // Gig 10-Minute Cooldowns Map (gigId -> expiry timestamp)
+  const [gigCooldowns, setGigCooldowns] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('lu_gig_cooldowns');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Live timer tick for MM:SS display
+  const [now, setNow] = useState<number>(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 5-Second Active Gig Task Countdown State
+  const [activeGigTask, setActiveGigTask] = useState<{
+    gig: GigItem;
+    secondsLeft: number;
+  } | null>(null);
+
+  // Helper to format remaining cooldown as MM:SS
+  const getRemainingCooldown = (gigId: string): string | null => {
+    const expiresAt = gigCooldowns[gigId];
+    if (!expiresAt) return null;
+    const diff = expiresAt - now;
+    if (diff <= 0) return null;
+    const totalSec = Math.ceil(diff / 1000);
+    const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+    const s = (totalSec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   // Format time
   const formatTime = (h: number, m: number) => {
@@ -249,18 +285,25 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
     }
   };
 
-  // Perform Gig handler
-  const handleCompleteGig = (gig: GigItem) => {
-    if (completedGigs.includes(gig.id)) {
-      addToast('✅ You already completed this gig today!', 'info');
-      return;
-    }
+  // Handle 5-Second Gig Countdown Progression & Atomic Cash Payout
+  useEffect(() => {
+    if (!activeGigTask) return;
 
-    if (stats.energy < gig.energyCost) {
-      addToast(`❌ Too exhausted! Need ${gig.energyCost}⚡ energy. Grab lunch or rest first.`, 'warning');
-      return;
+    if (activeGigTask.secondsLeft > 0) {
+      const timer = setTimeout(() => {
+        setActiveGigTask((prev) => (prev ? { ...prev, secondsLeft: prev.secondsLeft - 1 } : null));
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      // 5-Second Timer Reached 0: Complete gig atomic payout & set 10-minute cooldown
+      const targetGig = activeGigTask.gig;
+      setActiveGigTask(null);
+      finalizeGigPayout(targetGig);
     }
+  }, [activeGigTask]);
 
+  const finalizeGigPayout = async (gig: GigItem) => {
+    // 1. Perform game activity (energy cost, knowledge/mood/cgpa gain)
     performActivity({
       id: `gig_${gig.id}`,
       title: gig.title,
@@ -272,9 +315,59 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
       durationMinutes: 45,
     });
 
+    // 2. Call Supabase RPC payout_gig_reward
+    try {
+      if (supabase && stats.matricNo) {
+        await supabase.rpc('payout_gig_reward', {
+          student_matric: stats.matricNo,
+          payout_amount: gig.payout,
+        });
+      }
+    } catch (err) {
+      console.warn('Supabase payout_gig_reward RPC fallback:', err);
+    }
+
+    // 3. Atomic cash payout into student wallet
     addBalance(gig.payout);
-    setCompletedGigs((prev) => [...prev, gig.id]);
-    addToast(`💼 Gig finished: Received +₦${gig.payout.toLocaleString()} into student bank!`, 'success');
+    soundManager.playMoney();
+    addToast(`+₦${gig.payout.toLocaleString()} earned and added to wallet!`, 'success');
+
+    // 4. Place gig on strict 10-minute cooldown
+    const cooldownTimestamp = Date.now() + 10 * 60 * 1000;
+    setGigCooldowns((prev) => {
+      const updated = {
+        ...prev,
+        [gig.id]: cooldownTimestamp,
+      };
+      try {
+        localStorage.setItem('lu_gig_cooldowns', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  // Start 5-Second Gig Countdown
+  const handleStartGig = (gig: GigItem) => {
+    const cd = getRemainingCooldown(gig.id);
+    if (cd) {
+      soundManager.playError();
+      addToast(`⏳ This gig is on cooldown! Available again in ${cd}`, 'info');
+      return;
+    }
+
+    if (stats.energy < gig.energyCost) {
+      soundManager.playError();
+      addToast(`❌ Too exhausted! Need ${gig.energyCost}⚡ energy. Grab lunch or rest first.`, 'warning');
+      return;
+    }
+
+    soundManager.playClick();
+    setActiveGigTask({
+      gig,
+      secondsLeft: 5,
+    });
   };
 
   // Campus Landmark Destinations for LU Maps & Fast-Travel
@@ -337,7 +430,7 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
   };
 
   const totalUnreadMessages = 1;
-  const availableGigsCount = campusGigs.filter((g) => !completedGigs.includes(g.id)).length;
+  const availableGigsCount = campusGigs.filter((g) => !gigCooldowns[g.id] || gigCooldowns[g.id] <= now).length;
 
   return (
     <>
@@ -1016,14 +1109,53 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
 
               {/* Gigs List (Clean White Cards) */}
               <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 text-xs">
+                {/* 5-Second Ad / Action Countdown Progress Banner */}
+                {activeGigTask && (
+                  <div className="p-3.5 bg-gradient-to-r from-cyan-900 via-slate-900 to-cyan-950 text-white rounded-2xl border border-cyan-500/40 shadow-lg animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center animate-spin">
+                          <Clock className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold block leading-tight">
+                            Completing gig task... {activeGigTask.secondsLeft}s
+                          </span>
+                          <span className="text-[10px] text-cyan-200 line-clamp-1">
+                            {activeGigTask.gig.title}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono font-black text-cyan-300 bg-cyan-950/80 px-2 py-0.5 rounded-md border border-cyan-700/60">
+                        {activeGigTask.secondsLeft}s
+                      </span>
+                    </div>
+
+                    {/* 5-second progress bar */}
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-cyan-900 mt-2">
+                      <div
+                        className="bg-gradient-to-r from-cyan-400 to-emerald-400 h-full rounded-full transition-all duration-1000 ease-linear"
+                        style={{ width: `${((5 - activeGigTask.secondsLeft) / 5) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[9px] text-cyan-200/80 mt-1.5 font-medium">
+                      <span>Submitting client deliverables...</span>
+                      <span>Reward: +₦{activeGigTask.gig.payout.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+
                 {campusGigs.map((gig) => {
-                  const isDone = completedGigs.includes(gig.id);
+                  const cooldownTimer = getRemainingCooldown(gig.id);
+                  const isBusyWithThis = activeGigTask?.gig.id === gig.id;
+                  const isBlocked = Boolean(cooldownTimer) || Boolean(activeGigTask);
+
                   return (
                     <div
                       key={gig.id}
                       className={`p-3.5 rounded-2xl border transition-all shadow-xs ${
-                        isDone
-                          ? 'bg-slate-100/90 border-slate-200 opacity-60'
+                        cooldownTimer
+                          ? 'bg-slate-50/90 border-slate-200 opacity-75'
                           : 'bg-white hover:bg-slate-50/80 border-slate-200/90'
                       }`}
                     >
@@ -1047,15 +1179,26 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
                         </div>
 
                         <button
-                          onClick={() => handleCompleteGig(gig)}
-                          disabled={isDone}
-                          className={`px-3 py-1 rounded-xl text-[10px] font-bold shadow-xs ${
-                            isDone
+                          onClick={() => handleStartGig(gig)}
+                          disabled={isBlocked}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-bold shadow-xs transition-all ${
+                            cooldownTimer
+                              ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center gap-1 font-mono'
+                              : activeGigTask
                               ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                              : 'bg-cyan-600 hover:bg-cyan-500 text-white active:scale-95'
+                              : 'bg-cyan-600 hover:bg-cyan-500 text-white active:scale-95 cursor-pointer'
                           }`}
                         >
-                          {isDone ? 'Completed' : 'Accept Gig'}
+                          {cooldownTimer ? (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              Available again in {cooldownTimer}
+                            </span>
+                          ) : isBusyWithThis ? (
+                            'In Progress...'
+                          ) : (
+                            'Accept Gig'
+                          )}
                         </button>
                       </div>
                     </div>

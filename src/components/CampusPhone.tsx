@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useGame, ROOM_THEMES } from '../context/GameContext';
 import type { GameLocation } from '../types/game';
 import {
-  Wifi,
-  Battery,
   Landmark,
   UtensilsCrossed,
   Briefcase,
@@ -15,12 +13,9 @@ import {
   Award,
   BookOpen,
   Gift,
-  Vote,
-  ShoppingBag,
   CreditCard,
   Crown,
   Backpack,
-  Ticket,
   Sparkles,
   Map,
   Palette,
@@ -28,12 +23,15 @@ import {
   Check,
   SunMoon,
   RotateCcw,
-  Radio,
   Volume2,
   VolumeX,
   Music,
   Settings,
   Clock,
+  Phone,
+  Gamepad2,
+  Users,
+  X,
 } from 'lucide-react';
 import { CampusChatApp } from './CampusChatApp';
 import { MessagesApp } from './MessagesApp';
@@ -78,11 +76,12 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
     currentLocation,
     navigateToLocation,
     addToast,
+    toasts,
+    removeToast,
     setIsPhoneOpen,
     performActivity,
     setIsWardrobeOpen,
     setIsElectionsModalOpen,
-    setIsHustleModalOpen,
     setIsBettingModalOpen,
     theme,
     setTheme,
@@ -96,6 +95,49 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
   const { settings: audioSettings, toggleBgm, toggleSfx, setBgmVolume, setSfxVolume } = useAudioSettings();
 
   const [activeApp, setActiveApp] = useState<AppId>('home');
+
+  // Floating push notification banner state
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
+
+  // Esc key listener to smoothly close phone modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsPhoneOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setIsPhoneOpen]);
+
+  // Hook notification banner to incoming DMs, peer money transfers, or game alerts
+  const latestToast = toasts.length > 0 ? toasts[toasts.length - 1] : null;
+  const lastToastIdRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (latestToast && latestToast.id !== lastToastIdRef.current) {
+      lastToastIdRef.current = latestToast.id;
+      setBannerDismissed(false);
+    }
+  }, [latestToast]);
+
+  const bannerIcon = latestToast
+    ? latestToast.type === 'success'
+      ? '💰'
+      : latestToast.type === 'warning'
+      ? '⚠️'
+      : '📢'
+    : '🏛️';
+
+  const bannerTitle = latestToast
+    ? latestToast.type === 'success'
+      ? 'Campus Credit / Transfer'
+      : 'Campus Alert'
+    : 'Governor @Wealthynil';
+
+  const bannerSubtitle = latestToast
+    ? latestToast.message
+    : 'Money speak faster than words';
 
   // Allowance cooldown simulation
   const [allowanceClaimed, setAllowanceClaimed] = useState<boolean>(false);
@@ -434,340 +476,401 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
 
   return (
     <>
-      {/* Dimmed backdrop allowing click-outside to close */}
+      {/* Dimmed backdrop allowing click-outside to smoothly dismiss */}
       <div
         onClick={() => setIsPhoneOpen(false)}
-        onPointerDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[2px] transition-opacity"
+        className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-300"
       />
 
-      {/* Modern Smartphone Frame (Clean Silver / Matte White Theme) */}
+      {/* Scale Down Phone Frame: Centered, padded container */}
       <div
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        className="fixed bottom-20 sm:bottom-24 right-3 sm:right-8 z-50 w-[94vw] sm:w-[350px] max-w-[360px] h-[640px] max-h-[82vh] rounded-[46px] bg-slate-100 border-[9px] border-slate-300 shadow-2xl shadow-slate-900/25 ring-1 ring-slate-400/40 flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-300 pointer-events-auto"
+        onClick={() => setIsPhoneOpen(false)}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 pointer-events-none"
       >
-        {/* Dynamic Island / Top Notch (Sleek Graphite/Silver Accent) */}
-        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-50 w-28 h-5 rounded-full bg-slate-800/90 flex items-center justify-between px-3 shadow-inner ring-1 ring-slate-600/30 pointer-events-none">
-          <div className="w-2 h-2 rounded-full bg-slate-950 border border-slate-700 flex items-center justify-center">
-            <div className="w-1 h-1 rounded-full bg-blue-500/80" />
-          </div>
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/90 animate-pulse" />
-        </div>
-
-        {/* Status Bar (Dark Charcoal Typography for High Contrast) */}
-        <div className="relative z-40 flex items-center justify-between px-6 pt-3 pb-1 text-[11px] font-bold text-slate-800 select-none">
-          <span>{formatTime(stats.inGameHours, stats.inGameMinutes)}</span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-slate-600 font-mono">5G</span>
-            <Wifi className="w-3.5 h-3.5 text-slate-600" />
-            <div className="flex items-center gap-0.5">
-              <span className="text-[10px] text-slate-700 font-semibold">98%</span>
-              <Battery className="w-3.5 h-3.5 text-emerald-600 fill-emerald-500" />
+        {/* Top Floating Notification Banner (Outside / Above the Phone Chassis) */}
+        {!bannerDismissed && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              soundManager.playClick();
+              if (latestToast) {
+                if (latestToast.message.includes('₦') || latestToast.message.includes('balance') || latestToast.message.includes('Stipend')) {
+                  setActiveApp('bank');
+                } else if (latestToast.message.includes('💬') || latestToast.message.includes('message')) {
+                  setActiveApp('messages');
+                } else {
+                  setActiveApp('buzz');
+                }
+              } else {
+                setActiveApp('buzz');
+              }
+            }}
+            className="pointer-events-auto mb-2 w-full max-w-[340px] sm:max-w-[370px] bg-white/95 backdrop-blur-md rounded-2xl p-3 shadow-xl border border-slate-200/80 flex items-center gap-3 animate-bounce-subtle cursor-pointer hover:bg-white transition-all select-none"
+          >
+            <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-lg shrink-0">
+              {bannerIcon}
             </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-xs font-bold text-slate-800 truncate">{bannerTitle}</p>
+              <p className="text-xs text-emerald-600 font-medium truncate">{bannerSubtitle}</p>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (latestToast) {
+                  removeToast(latestToast.id);
+                }
+                setBannerDismissed(true);
+              }}
+              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              title="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Phone Content Screen Container with Clean Light Wallpaper */}
-        <div className="relative flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-sky-50 via-white to-amber-50 text-slate-800">
-          {/* Subtle Ambient Wallpaper Glow */}
-          <div className="absolute -top-16 -left-16 w-56 h-56 bg-sky-200/50 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -right-16 w-56 h-56 bg-amber-200/40 rounded-full blur-3xl pointer-events-none" />
+        {/* Realistic Smartphone Chassis */}
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="pointer-events-auto relative w-full max-w-[340px] sm:max-w-[370px] h-[78vh] sm:h-[82vh] max-h-[760px] bg-black rounded-[46px] p-[10px] shadow-2xl border-4 border-slate-800 flex flex-col overflow-hidden transition-transform duration-300 ease-out transform scale-100 animate-in fade-in zoom-in-95"
+        >
+          {/* Dynamic Island / Top Speaker Notch Pill at the top of the bezel */}
+          <div className="w-24 h-5 bg-black rounded-full mx-auto mb-1 shrink-0 flex items-center justify-center gap-2 border border-slate-900/60 shadow-inner">
+            <div className="w-2 h-2 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
+              <div className="w-1 h-1 rounded-full bg-blue-500/80" />
+            </div>
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </div>
 
-          {/* ============================================================== */}
-          {/* APP SCREEN 1: HOME SCREEN (4-Column App Grid & Widgets) */}
-          {/* ============================================================== */}
-          {activeApp === 'home' && (
-            <div className="flex-1 flex flex-col justify-between p-4 pb-2 overflow-y-auto animate-in fade-in duration-200">
-              {/* Top Student Hub Widget (Pure White Card) */}
-              <div className="mt-2 p-3.5 rounded-3xl bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-sm shadow">
-                      🎓
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold tracking-tight text-slate-900">LU Student Hub</h4>
-                      <p className="text-[10px] text-slate-500">Ibadan Campus • Sunny 31°C</p>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700">
-                    Active
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block font-semibold">Student Wallet</span>
-                    <span className="text-xs font-extrabold text-amber-600">₦{stats.balance.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block font-semibold">Academic CGPA</span>
-                    <span className="text-xs font-extrabold text-emerald-600">
-                      {stats.cgpa !== null ? `${stats.cgpa.toFixed(2)} / 5.00` : 'Pending (Fresh)'}
-                    </span>
-                  </div>
+          {/* Phone Screen Container with dark gradient wallpaper */}
+          <div className="rounded-[38px] flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-indigo-950 via-purple-900 to-amber-700 relative">
+            {/* Status Bar (Top of Phone Screen) */}
+            <div
+              className={`relative z-40 flex items-center justify-between px-6 pt-2 pb-1 text-[11px] font-bold select-none transition-colors ${
+                activeApp === 'home' ? 'text-white' : 'bg-white/95 text-slate-800 border-b border-slate-100'
+              }`}
+            >
+              <span>{activeApp === 'home' ? '9:41' : formatTime(stats.inGameHours, stats.inGameMinutes)}</span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`text-[10px] font-mono tracking-tight ${
+                    activeApp === 'home' ? 'text-white/90' : 'text-slate-600'
+                  }`}
+                >
+                  ••• 4G
+                </span>
+                <div
+                  className={`relative w-5 h-2.5 rounded-xs border p-0.5 flex items-center ${
+                    activeApp === 'home' ? 'border-white/90' : 'border-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`h-full w-3 rounded-2xs ${
+                      activeApp === 'home' ? 'bg-white' : 'bg-emerald-600'
+                    }`}
+                  />
+                  <div
+                    className={`absolute -right-1 top-0.5 w-0.5 h-1.5 rounded-r-2xs ${
+                      activeApp === 'home' ? 'bg-white/90' : 'bg-slate-700'
+                    }`}
+                  />
                 </div>
               </div>
+            </div>
 
-              {/* 4-Column App Grid (Sharp Icons on Bright Background) */}
-              <div className="my-auto py-3 grid grid-cols-4 gap-y-3.5 gap-x-2 text-center">
-                {/* 1. Bank App */}
-                <button
-                  onClick={() => setActiveApp('bank')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 border border-purple-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Landmark className="w-6 h-6 text-purple-100" />
-                    {!allowanceClaimed && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-[10px] font-black flex items-center justify-center text-white border-2 border-white animate-bounce shadow-sm">
-                        ₦
+            {/* ============================================================== */}
+            {/* APP SCREEN 1: HOMESCREEN UI & WALLPAPER LAYOUT */}
+            {/* ============================================================== */}
+            {activeApp === 'home' && (
+              <div className="flex-1 flex flex-col justify-between overflow-y-auto animate-in fade-in duration-200">
+                {/* Widget & Header Area */}
+                <div className="px-4 pt-3 pb-2 flex flex-col items-center text-center">
+                  <div className="text-5xl font-extrabold text-white tracking-tight drop-shadow-sm">
+                    {formatTime(stats.inGameHours, stats.inGameMinutes)}
+                  </div>
+                  <p className="text-xs font-medium text-white/90 mt-1 drop-shadow-xs">
+                    Monday 12 October · Ibadan Campus
+                  </p>
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setDayNightCycle((prev) => !prev);
+                    }}
+                    className="mt-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all text-white text-xs px-3 py-1 rounded-full w-fit backdrop-blur-sm flex items-center gap-1.5 cursor-pointer shadow-xs border border-white/15"
+                  >
+                    <span>🌙</span>
+                    <span>Night mode</span>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        dayNightCycle ? 'bg-amber-400' : 'bg-white/40'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* 4-Column App Grid */}
+                <div className="grid grid-cols-4 gap-y-4 gap-x-2 px-3 py-4 flex-1 content-start">
+                  {/* 1. Jobs / Hustles */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('gigs');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Briefcase className="w-6 h-6 text-white" />
+                      {availableGigsCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-white shadow-sm">
+                          {availableGigsCount}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Jobs</span>
+                  </button>
+
+                  {/* 2. Messages / DMs */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('messages');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-blue-500 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <MessageSquare className="w-6 h-6 text-white" />
+                      {totalUnreadMessages > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm">
+                          {totalUnreadMessages}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Messages</span>
+                  </button>
+
+                  {/* 3. Games */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setIsPhoneOpen(false);
+                      setIsBettingModalOpen(true);
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-emerald-600 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Gamepad2 className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Games</span>
+                  </button>
+
+                  {/* 4. Meetumo / Social */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('buzz');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-teal-600 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Users className="w-6 h-6 text-white" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-white animate-pulse" />
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Meetumo</span>
+                  </button>
+
+                  {/* 5. Tickets / Events (P logo with red NEW chip) */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setIsPhoneOpen(false);
+                      setIsElectionsModalOpen(true);
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-md flex items-center justify-center text-purple-700 group-hover:scale-105 active:scale-95 transition-transform">
+                      <span className="text-2xl font-black font-sans leading-none">P</span>
+                      <span className="absolute -top-1 -right-1 px-1 py-0.2 rounded-full bg-rose-500 text-[8px] font-black text-white border-2 border-white shadow-sm">
+                        NEW
                       </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Bank</span>
-                </button>
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Tickets</span>
+                  </button>
 
-                {/* 2. Campus Chow Delivery */}
-                <button
-                  onClick={() => setActiveApp('chow')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25 border border-orange-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <UtensilsCrossed className="w-6 h-6 text-orange-100" />
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white border-2 border-white shadow-sm">
-                      HOT
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Chow</span>
-                </button>
+                  {/* 6. Settings */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('settings');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Settings className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Settings</span>
+                  </button>
 
-                {/* 3. Messages / Chat App */}
-                <button
-                  onClick={() => setActiveApp('messages')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <MessageSquare className="w-6 h-6 text-emerald-100" />
+                  {/* 7. Courses / Academic */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('portal');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-blue-600 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <GraduationCap className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Courses</span>
+                  </button>
+
+                  {/* 8. Ride / Shuttle */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('shuttle');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-amber-400 shadow-md flex items-center justify-center text-slate-950 group-hover:scale-105 active:scale-95 transition-transform">
+                      <Car className="w-6 h-6 text-slate-950" />
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Ride</span>
+                  </button>
+
+                  {/* Row 3: Additional campus apps for full feature coverage */}
+                  {/* 9. Chow Delivery */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('chow');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-orange-500 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <UtensilsCrossed className="w-6 h-6 text-white" />
+                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-rose-500 text-[8px] font-bold text-white border border-white shadow-xs">
+                        HOT
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Chow</span>
+                  </button>
+
+                  {/* 10. Student Bank */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('bank');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-purple-600 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Landmark className="w-6 h-6 text-white" />
+                      {!allowanceClaimed && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-[10px] font-black flex items-center justify-center text-white border border-white shadow-xs">
+                          ₦
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Bank</span>
+                  </button>
+
+                  {/* 11. Campus 3D Maps */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('maps');
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-cyan-600 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Map className="w-6 h-6 text-white" />
+                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-cyan-900 text-[8px] font-black text-white border border-white shadow-xs">
+                        3D
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Maps</span>
+                  </button>
+
+                  {/* 12. Student Wardrobe */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setIsPhoneOpen(false);
+                      setIsWardrobeOpen(true);
+                    }}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
+                  >
+                    <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-pink-600 shadow-md flex items-center justify-center text-white group-hover:scale-105 active:scale-95 transition-transform">
+                      <Sparkles className="w-6 h-6 text-amber-200" />
+                    </div>
+                    <span className="text-[11px] text-white text-center font-medium drop-shadow-sm">Wardrobe</span>
+                  </button>
+                </div>
+
+                {/* Bottom Dock (Floating App Dock) */}
+                <div className="mx-3 mb-3 bg-white/20 backdrop-blur-lg rounded-3xl p-2 grid grid-cols-4 gap-2 border border-white/20">
+                  {/* Phone / Dialer */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      addToast('📞 Calling Campus Security Dispatch (Emergency: 0800-LU-CARE)...', 'info');
+                    }}
+                    className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 flex items-center justify-center text-white shadow-md transition-all cursor-pointer"
+                    title="Dialer / Emergency Call"
+                  >
+                    <Phone className="w-5 h-5" />
+                  </button>
+
+                  {/* Bank / Wallet */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('bank');
+                    }}
+                    className="w-12 h-12 mx-auto rounded-2xl bg-purple-600 hover:bg-purple-500 active:scale-95 flex items-center justify-center text-white shadow-md transition-all cursor-pointer"
+                    title="Bank / Wallet"
+                  >
+                    <Landmark className="w-5 h-5" />
+                  </button>
+
+                  {/* Messages */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('messages');
+                    }}
+                    className="relative w-12 h-12 mx-auto rounded-2xl bg-blue-500 hover:bg-blue-400 active:scale-95 flex items-center justify-center text-white shadow-md transition-all cursor-pointer"
+                    title="Messages (DMs)"
+                  >
+                    <MessageSquare className="w-5 h-5" />
                     {totalUnreadMessages > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[10px] font-bold text-white flex items-center justify-center border-2 border-white shadow-sm">
-                        {totalUnreadMessages}
-                      </span>
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center border-2 border-white" />
                     )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Messages</span>
-                </button>
+                  </button>
 
-                {/* 4. LU Portal */}
-                <button
-                  onClick={() => setActiveApp('portal')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-rose-500 to-red-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/25 border border-rose-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <GraduationCap className="w-6 h-6 text-rose-100" />
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-600 text-[8px] font-black text-white border-2 border-white shadow-sm">
-                      5.0
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Portal</span>
-                </button>
+                  {/* Settings */}
+                  <button
+                    onClick={() => {
+                      soundManager.playClick();
+                      setActiveApp('settings');
+                    }}
+                    className="w-12 h-12 mx-auto rounded-2xl bg-slate-800 hover:bg-slate-700 active:scale-95 flex items-center justify-center text-white shadow-md transition-all cursor-pointer"
+                    title="Settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                </div>
 
-                {/* 5. 🗳️ SUG Portal App */}
-                <button
-                  onClick={() => {
-                    setIsPhoneOpen(false);
-                    setIsElectionsModalOpen(true);
-                  }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-teal-500/25 border border-teal-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Vote className="w-6 h-6 text-yellow-300" />
-                    {stats.isSugCandidate && (
-                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-[8px] font-black text-slate-950 border-2 border-white shadow-sm">
-                        CAND
-                      </span>
-                    )}
-                    {stats.hasWonSugElection && (
-                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-[8px] font-black text-slate-950 border-2 border-white shadow-sm">
-                        👑 SUG
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">SUG Portal</span>
-                </button>
-
-                {/* 6. 💼 Campus Hustles App */}
-                <button
-                  onClick={() => {
-                    setIsPhoneOpen(false);
-                    setIsHustleModalOpen(true);
-                  }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/25 border border-amber-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Briefcase className="w-6 h-6 text-white" />
-                    {stats.smallChopsStock > 0 && (
-                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-500 text-[8px] font-bold text-white border-2 border-white shadow-sm">
-                        {stats.smallChopsStock}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Hustles</span>
-                </button>
-
-                {/* 7. ✨ Wardrobe App */}
-                <button
-                  onClick={() => {
-                    setIsPhoneOpen(false);
-                    setIsWardrobeOpen(true);
-                  }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 border border-purple-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Sparkles className="w-6 h-6 text-amber-200" />
-                    {stats.spiritualTitle && stats.spiritualTitle !== 'Student' && (
-                      <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-[8px] font-black text-slate-950 border-2 border-white shadow-sm">
-                        VEST
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Wardrobe</span>
-                </button>
-
-                {/* 8. 🗺️ LU Maps App */}
-                <button
-                  onClick={() => setActiveApp('maps')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Map className="w-6 h-6 text-emerald-100" />
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-emerald-800 text-[8px] font-black text-white border-2 border-white shadow-sm">
-                      3D
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">LU Maps</span>
-                </button>
-
-                {/* 9. ⚙️ Campus Settings & Audio App */}
-                <button
-                  onClick={() => {
-                    soundManager.playClick();
-                    setActiveApp('settings');
-                  }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-700/25 border border-slate-600/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Settings className="w-6 h-6 text-indigo-300" />
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Settings</span>
-                </button>
-
-                {/* 10. Shuttle Fast-Travel */}
-                <button
-                  onClick={() => setActiveApp('shuttle')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/25 border border-yellow-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Car className="w-6 h-6 text-slate-950" />
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-blue-600 text-[8px] font-bold text-white border-2 border-white shadow-sm">
-                      200₦
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Shuttle</span>
-                </button>
-
-                {/* 11. Student Gigs Board */}
-                <button
-                  onClick={() => setActiveApp('gigs')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 border border-cyan-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <ShoppingBag className="w-6 h-6 text-cyan-100" />
-                    {availableGigsCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-[10px] font-bold text-slate-950 flex items-center justify-center border-2 border-white shadow-sm">
-                        {availableGigsCount}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">Gigs</span>
-                </button>
-
-                {/* 12. Campus Bet App */}
-                <button
-                  onClick={() => {
-                    setIsPhoneOpen(false);
-                    setIsBettingModalOpen(true);
-                  }}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-green-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <Ticket className="w-6 h-6 text-yellow-300" />
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-rose-500 text-[8px] font-black text-white border-2 border-white shadow-sm">
-                      1X2
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">CampusBet</span>
-                </button>
-
-                {/* 13. LU Campus Buzz (Real-time Multiplayer Chat) */}
-                <button
-                  onClick={() => setActiveApp('buzz')}
-                  className="group flex flex-col items-center gap-1.5 focus:outline-hidden cursor-pointer"
-                >
-                  <div className="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/25 border border-emerald-200/50 group-hover:scale-105 active:scale-95 transition-transform">
-                    <MessageSquare className="w-6 h-6 text-emerald-100" />
-                    <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-emerald-600 text-[8px] font-black text-white border-2 border-white shadow-sm flex items-center gap-0.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
-                      LIVE
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-slate-800 tracking-tight">LU Buzz</span>
-                </button>
+                {/* Home indicator line at the very bottom */}
+                <div
+                  className="w-32 h-1 bg-white/80 rounded-full mx-auto mb-1 cursor-pointer hover:bg-white transition-colors"
+                  onClick={() => setIsPhoneOpen(false)}
+                  title="Close Phone"
+                />
               </div>
-
-              {/* Bottom Quick Launch Dock on Phone (Glassy White Pill) */}
-              <div className="p-2 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/90 flex items-center justify-around shadow-sm">
-                <button
-                  onClick={() => setActiveApp('bank')}
-                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-purple-600 transition-colors shadow-2xs cursor-pointer"
-                  title="Bank"
-                >
-                  <Landmark className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  onClick={() => setActiveApp('chow')}
-                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-orange-600 transition-colors shadow-2xs cursor-pointer"
-                  title="Campus Chow"
-                >
-                  <UtensilsCrossed className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  onClick={() => setActiveApp('messages')}
-                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-emerald-600 transition-colors shadow-2xs cursor-pointer"
-                  title="Messages (1-on-1 DMs)"
-                >
-                  <MessageSquare className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  onClick={() => setActiveApp('buzz')}
-                  className="relative w-10 h-10 rounded-2xl bg-emerald-50 hover:bg-emerald-100/80 flex items-center justify-center text-teal-600 transition-colors shadow-2xs cursor-pointer border border-teal-200/60"
-                  title="LU Buzz (Live Campus Chat)"
-                >
-                  <Radio className="w-4.5 h-4.5" />
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 animate-pulse border border-white" />
-                </button>
-                <button
-                  onClick={() => setActiveApp('maps')}
-                  className="w-10 h-10 rounded-2xl bg-slate-100 hover:bg-slate-200/80 flex items-center justify-center text-teal-600 transition-colors shadow-2xs cursor-pointer"
-                  title="LU Maps"
-                >
-                  <Map className="w-4.5 h-4.5" />
-                </button>
-              </div>
-            </div>
-          )}
+            )}
 
           {/* ============================================================== */}
           {/* APP SCREEN 2: BANK APP (LU Kuda Microfinance) */}
@@ -1805,23 +1908,20 @@ export const CampusPhone: React.FC<CampusPhoneProps> = ({ allOnlinePlayers = [] 
           )}
 
           {/* ============================================================== */}
-          {/* BOTTOM HOME-INDICATOR BAR (Soft Grey) */}
+          {/* BOTTOM HOME-INDICATOR BAR (when inside sub-apps) */}
           {/* ============================================================== */}
-          <div className="relative z-40 py-2.5 flex items-center justify-center">
-            <button
-              onClick={() => {
-                if (activeApp !== 'home') {
-                  setActiveApp('home');
-                } else {
-                  setIsPhoneOpen(false);
-                }
-              }}
-              title={activeApp !== 'home' ? 'Return to Home Screen' : 'Close Phone'}
-              className="w-32 h-1 rounded-full bg-slate-400 hover:bg-slate-500 active:bg-slate-600 transition-all hover:scale-105 active:scale-95"
-            />
-          </div>
+          {activeApp !== 'home' && (
+            <div className="relative z-40 py-2.5 bg-white/95 border-t border-slate-100 flex items-center justify-center">
+              <button
+                onClick={() => setActiveApp('home')}
+                title="Return to Home Screen"
+                className="w-32 h-1 rounded-full bg-slate-400 hover:bg-slate-500 active:bg-slate-600 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              />
+            </div>
+          )}
         </div>
       </div>
-    </>
-  );
+    </div>
+  </>
+);
 };

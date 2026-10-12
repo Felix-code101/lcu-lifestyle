@@ -127,6 +127,7 @@ export interface PlayerStats {
   completedSemesters: SemesterRecord[];
   knowledge: number;
   mood: number;
+  cleanliness?: number; // 0 to 100% room cleanliness
   level: number;
   xp: number;
   maxXp: number;

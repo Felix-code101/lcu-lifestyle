@@ -11,6 +11,64 @@ import type { RoomItem, CampusNPC, GameLocation, CharacterCustomization, RemoteP
 import { RemoteStudentModal } from './RemoteStudentModal';
 import { MapPin } from 'lucide-react';
 import { soundManager } from '../lib/soundManager';
+import { getStudentAccounts, saveStudentAccount, supabase } from '../lib/supabase';
+
+export interface HostelInteractiveAction {
+  type: 'bed' | 'bath' | 'study' | 'wardrobe' | 'sweep';
+  icon: string;
+  label: string;
+  duration: number; // in seconds
+  description: string;
+}
+
+export function getHostelItemAction(item: RoomItem): HostelInteractiveAction | null {
+  if (item.type === 'bunk_bed' || item.type === 'bed') {
+    return {
+      type: 'bed',
+      icon: '🛏️',
+      label: 'Sleep & Rest',
+      duration: 5,
+      description: 'Restores Energy to 100%, advances in-game clock by 4 hours',
+    };
+  }
+  if (item.type === 'water_gallon') {
+    return {
+      type: 'bath',
+      icon: '🚿',
+      label: 'Take a Bath',
+      duration: 4,
+      description: 'Hygiene/Mood +25%, Energy +10%',
+    };
+  }
+  if (item.type === 'desk' || item.type === 'laptop_and_books' || item.type === 'chair') {
+    return {
+      type: 'study',
+      icon: '📖',
+      label: 'Self Study & Revision',
+      duration: 6,
+      description: '+3% Exam Preparation, -8 Energy',
+    };
+  }
+  if (item.type === 'locker') {
+    return {
+      type: 'wardrobe',
+      icon: '👕',
+      label: 'Change Clothes',
+      duration: 0,
+      description: 'Open wardrobe & customize outfit',
+    };
+  }
+  if (item.type === 'waste_bin') {
+    return {
+      type: 'sweep',
+      icon: '🧹',
+      label: 'Sweep Room',
+      duration: 3,
+      description: 'Room cleanliness set to 100%, +5 XP',
+    };
+  }
+  return null;
+}
 
 interface ScreenBadge {
   id: string;
@@ -50,6 +108,7 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
     activeTab,
     isPhoneOpen,
     addToast,
+    setStats,
   } = useGame();
 
   const [hoveredTile, setHoveredTile] = useState<{ x: number; z: number } | null>(null);
@@ -59,10 +118,222 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
   const [selectedRemoteStudent, setSelectedRemoteStudent] = useState<RemotePlayer | null>(null);
   const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
+  // Player autonomous movement & location tracking
+  const playerPositionRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
+  const playerTargetRef = useRef<{ x: number; z: number; onArrival?: () => void } | null>(null);
+
+  // Interactive objects Sims-Style floating bubble state
+  interface FloatingBubbleState {
+    item: RoomItem;
+    action: HostelInteractiveAction;
+  }
+  const [activeBubble, setActiveBubble] = useState<FloatingBubbleState | null>(null);
+  const activeBubbleRef = useRef<FloatingBubbleState | null>(null);
+  activeBubbleRef.current = activeBubble;
+  const [bubbleScreenPos, setBubbleScreenPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Active running interaction state
+  interface ActiveActionState {
+    action: HostelInteractiveAction;
+    item: RoomItem;
+    startTime: number;
+    durationMs: number;
+  }
+  const [activeAction, setActiveAction] = useState<ActiveActionState | null>(null);
+  const activeActionRef = useRef<ActiveActionState | null>(null);
+  activeActionRef.current = activeAction;
+
+  const [actionProgress, setActionProgress] = useState<number>(0);
+  const [actionRemainingSec, setActionRemainingSec] = useState<number>(0);
+  const [overheadScreenPos, setOverheadScreenPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [bedScreenPos, setBedScreenPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Handle action start
+  const handleStartAction = useCallback(
+    (action: HostelInteractiveAction, item: RoomItem) => {
+      setActiveBubble(null);
+
+      if (action.type === 'wardrobe') {
+        soundManager.playClick();
+        setIsWardrobeOpen(true);
+        return;
+      }
+
+      // Lock player movement
+      playerTargetRef.current = null;
+      if (playerModelRef.current) {
+        playerModelRef.current.setWalking(false);
+      }
+
+      const durationMs = action.duration * 1000;
+      const newAction: ActiveActionState = {
+        action,
+        item,
+        startTime: Date.now(),
+        durationMs,
+      };
+
+      activeActionRef.current = newAction;
+      setActiveAction(newAction);
+      setActionProgress(0);
+      setActionRemainingSec(action.duration);
+
+      // Animation / Poses / Initial Audio
+      if (action.type === 'bed') {
+        if (playerModelRef.current) {
+          playerModelRef.current.group.position.set(item.x, 0.82, item.z);
+          playerModelRef.current.group.rotation.set(0, 0, Math.PI / 2);
+          playerPositionRef.current = { x: item.x, z: item.z };
+        }
+      } else if (action.type === 'bath') {
+        soundManager.playSplash();
+      } else if (action.type === 'study') {
+        soundManager.playStudy();
+        if (playerModelRef.current) {
+          playerModelRef.current.group.position.set(item.x, 0, item.z + 1.0);
+          playerModelRef.current.group.rotation.set(0, Math.PI, 0);
+          playerPositionRef.current = { x: item.x, z: item.z + 1.0 };
+        }
+      } else if (action.type === 'sweep') {
+        soundManager.playSweep();
+      }
+    },
+    [setIsWardrobeOpen]
+  );
+
+  // Handle action completion
+  const handleCompleteAction = useCallback(
+    (actionState: ActiveActionState) => {
+      const { action, item } = actionState;
+      activeActionRef.current = null;
+      setActiveAction(null);
+      setActionProgress(100);
+
+      // Play success chime
+      soundManager.playChime();
+
+      // Reset avatar orientation if sleeping or studying
+      if (action.type === 'bed') {
+        if (playerModelRef.current) {
+          playerModelRef.current.group.position.set(item.x + 1.2, 0, item.z);
+          playerModelRef.current.group.rotation.set(0, Math.PI / 4, 0);
+          playerPositionRef.current = { x: item.x + 1.2, z: item.z };
+        }
+      } else if (action.type === 'study') {
+        if (playerModelRef.current) {
+          playerModelRef.current.group.rotation.set(0, Math.PI / 4, 0);
+        }
+      }
+
+      // Apply stat rewards
+      setStats((prev) => {
+        let next = { ...prev };
+        if (action.type === 'bed') {
+          let newHour = prev.inGameHours + 4;
+          let newDay = prev.day;
+          if (newHour >= 24) {
+            newHour = newHour % 24;
+            newDay += 1;
+          }
+          next = {
+            ...prev,
+            energy: prev.maxEnergy,
+            inGameHours: newHour,
+            day: newDay,
+          };
+          addToast('🛏️ Well rested! Energy restored to 100% (+4 hours in-game)', 'success');
+        } else if (action.type === 'bath') {
+          next = {
+            ...prev,
+            mood: Math.min(100, prev.mood + 25),
+            cleanliness: Math.min(100, (prev.cleanliness ?? 100) + 25),
+            energy: Math.min(prev.maxEnergy, prev.energy + 10),
+          };
+          addToast('🚿 Fresh & clean! Mood +25%, Energy +10%', 'success');
+        } else if (action.type === 'study') {
+          next = {
+            ...prev,
+            examPrep: Math.min(100, (prev.examPrep ?? 0) + 3),
+            energy: Math.max(0, prev.energy - 8),
+            knowledge: prev.knowledge + 15,
+            xp: prev.xp + 8,
+          };
+          addToast('📖 Revision completed! Exam Prep +3%, Energy -8', 'success');
+        } else if (action.type === 'sweep') {
+          next = {
+            ...prev,
+            cleanliness: 100,
+            xp: prev.xp + 5,
+          };
+          addToast('🧹 Room swept clean! Cleanliness 100%, +5 XP', 'success');
+        }
+
+        // Persist to localStorage & Supabase
+        try {
+          localStorage.setItem('lu_player_profile', JSON.stringify(next));
+          getStudentAccounts()
+            .then(async (accounts) => {
+              const idx = accounts.findIndex(
+                (a) => a.matricNo.toLowerCase() === next.matricNo.toLowerCase()
+              );
+              if (idx >= 0) {
+                accounts[idx].balance = next.balance;
+                await saveStudentAccount(accounts[idx]);
+              }
+            })
+            .catch(() => {});
+
+          if (supabase && next.matricNo) {
+            Promise.resolve(
+              supabase
+                .from('students')
+                .update({
+                  lastActive: new Date().toISOString(),
+                })
+                .eq('matricNo', next.matricNo)
+            ).catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
+
+        return next;
+      });
+    },
+    [setStats, addToast]
+  );
+
+  // Active action progress heartbeat
+  useEffect(() => {
+    if (!activeAction) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - activeAction.startTime;
+      const progress = Math.min(100, (elapsed / activeAction.durationMs) * 100);
+      const remainingSec = Math.max(0, Math.ceil((activeAction.durationMs - elapsed) / 1000));
+
+      setActionProgress(progress);
+      setActionRemainingSec(remainingSec);
+
+      // Gentle splash mid-bath
+      if (activeAction.action.type === 'bath' && elapsed > 1800 && elapsed < 1900) {
+        soundManager.playSplash();
+      }
+
+      if (elapsed >= activeAction.durationMs) {
+        clearInterval(interval);
+        handleCompleteAction(activeAction);
+      }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [activeAction, handleCompleteAction]);
+
   // Reset selected tile, placement coordinates, and active interaction state
   const handleClosePlacement = useCallback(() => {
     setActiveInteractTile(null);
     setActiveInteractItem(null);
+    setActiveBubble(null);
     setHoveredTile(null);
     setSelectedPlacingItem(null);
     if (tileHighlightRef.current) {
@@ -73,6 +344,12 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
   // Auto-Dismiss Modals & Placement Tools on Navigation Tab or Location Change
   useEffect(() => {
     handleClosePlacement();
+    setActiveBubble(null);
+    if (currentLocation !== 'home_hostel') {
+      activeActionRef.current = null;
+      setActiveAction(null);
+      playerTargetRef.current = null;
+    }
   }, [activeTab, currentLocation, isPhoneOpen, handleClosePlacement]);
 
   // Strict Hostel Placement Gating: Abort and warn if placement triggered outside personal hostel room
@@ -142,10 +419,10 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
         group.remove(group.children[0]);
       }
 
-      // 1. Spawn Player's 3D Character on floor plane at [0, 0, 0]
+      // 1. Spawn Player's 3D Character on floor plane at dynamic playerPosition
       const playerInstance = createCharacterModel(custom);
       playerModelRef.current = playerInstance;
-      playerInstance.group.position.set(0, 0, 0);
+      playerInstance.group.position.set(playerPositionRef.current.x, 0, playerPositionRef.current.z);
       playerInstance.group.rotation.y = Math.PI / 4;
       group.add(playerInstance.group);
 
@@ -603,6 +880,40 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
 
       controls.update();
 
+      // Handle player autonomous walking towards target
+      if (playerTargetRef.current && playerModelRef.current) {
+        const curX = playerPositionRef.current.x;
+        const curZ = playerPositionRef.current.z;
+        const targetX = playerTargetRef.current.x;
+        const targetZ = playerTargetRef.current.z;
+        const dx = targetX - curX;
+        const dz = targetZ - curZ;
+        const dist = Math.hypot(dx, dz);
+
+        if (dist > 0.08) {
+          playerModelRef.current.setWalking(true);
+          const targetAngle = Math.atan2(dx, dz);
+          playerModelRef.current.group.rotation.y = targetAngle;
+
+          const speed = 4.8;
+          const moveDist = Math.min(dist, speed * delta);
+          const nx = curX + (dx / dist) * moveDist;
+          const nz = curZ + (dz / dist) * moveDist;
+          playerPositionRef.current = { x: nx, z: nz };
+          playerModelRef.current.group.position.set(nx, 0, nz);
+        } else {
+          // Arrived at destination!
+          playerPositionRef.current = { x: targetX, z: targetZ };
+          playerModelRef.current.group.position.set(targetX, 0, targetZ);
+          playerModelRef.current.setWalking(false);
+          const onArrival = playerTargetRef.current.onArrival;
+          playerTargetRef.current = null;
+          if (onArrival) {
+            onArrival();
+          }
+        }
+      }
+
       // Update Character animations (Breathing, bobbing, floating crown)
       if (playerModelRef.current) {
         playerModelRef.current.update(delta, elapsed);
@@ -621,14 +932,16 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       const containerH = container.clientHeight;
       const newBadges: ScreenBadge[] = [];
 
-      // 1. Player Badge (positioned directly over player at [0, 0, 0])
-      tempVec.set(0, 3.4, 0);
+      // 1. Player Badge (positioned directly over player avatar)
+      tempVec.set(playerPositionRef.current.x, 3.4, playerPositionRef.current.z);
       tempVec.project(camera);
       if (tempVec.z <= 1.0) {
         newBadges.push({
           id: 'player_badge',
           label: stats.username ? `${stats.username} (You)` : 'You (Student)',
-          role: `Lvl ${stats.level} • ${stats.department}`,
+          role: activeActionRef.current
+            ? `${activeActionRef.current.action.label}...`
+            : `Lvl ${stats.level} • ${stats.department}`,
           icon: stats.status === 'nepo' ? '👑' : '🎒',
           statusBadge: stats.status,
           screenX: (tempVec.x * 0.5 + 0.5) * containerW,
@@ -689,6 +1002,41 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       }
 
       setScreenBadges(newBadges);
+
+      // 4. Project active Sims floating bubble
+      if (activeBubbleRef.current) {
+        tempVec.set(activeBubbleRef.current.item.x, 2.3, activeBubbleRef.current.item.z);
+        tempVec.project(camera);
+        if (tempVec.z <= 1.0) {
+          setBubbleScreenPos({
+            x: (tempVec.x * 0.5 + 0.5) * containerW,
+            y: (-tempVec.y * 0.5 + 0.5) * containerH,
+          });
+        }
+      }
+
+      // 5. Project overhead action progress and bed particles
+      if (activeActionRef.current) {
+        tempVec.set(playerPositionRef.current.x, 3.0, playerPositionRef.current.z);
+        tempVec.project(camera);
+        if (tempVec.z <= 1.0) {
+          setOverheadScreenPos({
+            x: (tempVec.x * 0.5 + 0.5) * containerW,
+            y: (-tempVec.y * 0.5 + 0.5) * containerH,
+          });
+        }
+
+        if (activeActionRef.current.action.type === 'bed') {
+          tempVec.set(activeActionRef.current.item.x, 2.3, activeActionRef.current.item.z);
+          tempVec.project(camera);
+          if (tempVec.z <= 1.0) {
+            setBedScreenPos({
+              x: (tempVec.x * 0.5 + 0.5) * containerW,
+              y: (-tempVec.y * 0.5 + 0.5) * containerH,
+            });
+          }
+        }
+      }
 
       renderer.render(scene, camera);
     };
@@ -803,6 +1151,11 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
       // If clicked target is not the container or canvas element, ignore
       if (e.target !== containerRef.current && (e.target as HTMLElement)?.tagName !== 'CANVAS') return;
 
+      // If an interaction action is currently in progress, movement and clicks are locked
+      if (activeActionRef.current !== null) {
+        return;
+      }
+
       // If any modal, drawer, or phone is active, do not open placement
       if (
         activeInteractTile !== null ||
@@ -852,10 +1205,10 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
             }
           }
 
-          // Check if clicking near player avatar at [0, 0, 0] to open wardrobe
+          // Check if clicking near player avatar to open wardrobe
           if (
-            Math.abs(0 - gridX) < 0.8 &&
-            Math.abs(0 - gridZ) < 0.8
+            Math.abs(playerPositionRef.current.x - gridX) < 0.8 &&
+            Math.abs(playerPositionRef.current.z - gridZ) < 0.8
           ) {
             setIsWardrobeOpen(true);
             return;
@@ -917,6 +1270,81 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
               (i) => Math.abs(i.x - gridX) < 0.7 && Math.abs(i.z - gridZ) < 0.7
             ) || null;
 
+          const hostelAction = clickedItem ? getHostelItemAction(clickedItem) : null;
+
+          // If clicking an interactive hostel object (Bed, Bucket, Desk, Locker, Bin)
+          if (clickedItem && hostelAction) {
+            const dist = Math.hypot(
+              clickedItem.x - playerPositionRef.current.x,
+              clickedItem.z - playerPositionRef.current.z
+            );
+
+            // Within close proximity (< 2.2 units)
+            if (dist < 2.2) {
+              playerTargetRef.current = null;
+              if (playerModelRef.current) {
+                playerModelRef.current.setWalking(false);
+              }
+
+              if (hostelAction.type === 'wardrobe') {
+                soundManager.playClick();
+                setIsWardrobeOpen(true);
+                return;
+              }
+
+              // Compute initial screen position for floating bubble
+              const v = new THREE.Vector3(clickedItem.x, 2.3, clickedItem.z);
+              v.project(cameraRef.current);
+              setBubbleScreenPos({
+                x: (v.x * 0.5 + 0.5) * rect.width,
+                y: (-v.y * 0.5 + 0.5) * rect.height,
+              });
+              setActiveBubble({ item: clickedItem, action: hostelAction });
+              return;
+            }
+
+            // Outside proximity: move player toward adjacent grid tile before triggering menu
+            const vx = playerPositionRef.current.x - clickedItem.x;
+            const vz = playerPositionRef.current.z - clickedItem.z;
+            const len = Math.hypot(vx, vz) || 1;
+            const standX = Math.max(-8.5, Math.min(8.5, Math.round((clickedItem.x + (vx / len) * 1.5) * 2) / 2));
+            const standZ = Math.max(-8.5, Math.min(8.5, Math.round((clickedItem.z + (vz / len) * 1.5) * 2) / 2));
+
+            setActiveBubble(null);
+            playerTargetRef.current = {
+              x: standX,
+              z: standZ,
+              onArrival: () => {
+                if (hostelAction.type === 'wardrobe') {
+                  soundManager.playClick();
+                  setIsWardrobeOpen(true);
+                } else {
+                  if (cameraRef.current && containerRef.current) {
+                    const r = containerRef.current.getBoundingClientRect();
+                    const v = new THREE.Vector3(clickedItem.x, 2.3, clickedItem.z);
+                    v.project(cameraRef.current);
+                    setBubbleScreenPos({
+                      x: (v.x * 0.5 + 0.5) * r.width,
+                      y: (-v.y * 0.5 + 0.5) * r.height,
+                    });
+                  }
+                  setActiveBubble({ item: clickedItem, action: hostelAction });
+                }
+              },
+            };
+            return;
+          }
+
+          // If clicking an empty floor tile in the hostel room: walk avatar to tile
+          if (!clickedItem) {
+            setActiveBubble(null);
+            setActiveInteractTile(null);
+            playerTargetRef.current = { x: gridX, z: gridZ };
+            return;
+          }
+
+          // Other furniture items (plants, lamps, etc.): open standard tile modal
+          setActiveBubble(null);
           setActiveInteractTile({ x: gridX, z: gridZ });
           setActiveInteractItem(clickedItem);
         }
@@ -1024,6 +1452,97 @@ export const IsometricCanvas: React.FC<{ remotePlayers?: RemotePlayer[] }> = ({ 
           <div className="w-2 h-2 bg-white border-r border-b border-slate-200 transform rotate-45 -mt-1 shadow-xs" />
         </div>
       ))}
+
+      {/* 1. Sims-Style Floating Action Bubble above Interactive Objects */}
+      {activeBubble && (
+        <div
+          style={{
+            left: `${bubbleScreenPos.x}px`,
+            top: `${bubbleScreenPos.y}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute z-30 pointer-events-auto flex flex-col items-center animate-in zoom-in-95 duration-150 select-none"
+        >
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 shadow-2xl border border-slate-200/90 flex flex-col gap-1 z-30">
+            <button
+              onClick={() => handleStartAction(activeBubble.action, activeBubble.item)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-blue-50 text-slate-800 text-xs font-semibold transition-colors shadow-xs active:scale-95 cursor-pointer"
+            >
+              <span className="text-base">{activeBubble.action.icon}</span>
+              <span>{activeBubble.action.label}</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveInteractTile({ x: activeBubble.item.x, z: activeBubble.item.z });
+                setActiveInteractItem(activeBubble.item);
+                setActiveBubble(null);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 text-[11px] font-medium transition-colors cursor-pointer"
+            >
+              <span>⚙️</span>
+              <span>Move / Rotate</span>
+            </button>
+          </div>
+          <div className="w-2.5 h-2.5 bg-white border-r border-b border-slate-200 transform rotate-45 -mt-1 shadow-xs" />
+        </div>
+      )}
+
+      {/* 2. 3D Overhead Action Progress Bar Above Player */}
+      {activeAction && (
+        <div
+          style={{
+            left: `${overheadScreenPos.x}px`,
+            top: `${overheadScreenPos.y}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+          className="absolute z-40 pointer-events-none flex flex-col items-center select-none"
+        >
+          <div className="bg-slate-900/95 backdrop-blur-md text-white rounded-2xl px-4 py-2.5 shadow-2xl border border-emerald-500/50 flex flex-col items-center min-w-[190px] animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-2 mb-1.5 w-full justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-base animate-bounce">{activeAction.action.icon}</span>
+                <span className="text-xs font-bold text-white tracking-wide">
+                  {activeAction.action.type === 'bath'
+                    ? 'Taking a bath...'
+                    : activeAction.action.type === 'bed'
+                    ? 'Sleeping...'
+                    : activeAction.action.type === 'study'
+                    ? 'Self studying...'
+                    : 'Sweeping room...'}
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-400 font-extrabold">
+                {actionRemainingSec}s
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden p-0.5 border border-slate-700">
+              <div
+                className="bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 h-full rounded-full transition-all duration-75 ease-out shadow-sm"
+                style={{ width: `${actionProgress}%` }}
+              />
+            </div>
+          </div>
+          <div className="w-2.5 h-2.5 bg-slate-900 border-r border-b border-emerald-500/50 transform rotate-45 -mt-1 shadow-xs" />
+        </div>
+      )}
+
+      {/* 3. Floating 💤 Particles for Sleep & Rest */}
+      {activeAction && activeAction.action.type === 'bed' && (
+        <div
+          style={{
+            left: `${bedScreenPos.x}px`,
+            top: `${bedScreenPos.y}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+          className="absolute z-40 pointer-events-none flex items-center justify-center select-none"
+        >
+          <span className="text-2xl animate-float-z1 text-blue-400 font-black drop-shadow-md">💤</span>
+          <span className="text-lg animate-float-z2 text-indigo-400 font-black drop-shadow-md -ml-2 -mt-4">💤</span>
+          <span className="text-xl animate-float-z3 text-sky-400 font-black drop-shadow-md -mr-2 -mt-8">💤</span>
+        </div>
+      )}
 
       {/* Remote Peer Student Profile Inspector Modal */}
       {selectedRemoteStudent && (

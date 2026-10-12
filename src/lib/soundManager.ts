@@ -448,6 +448,173 @@ class SoundManager {
       // ignore
     }
   }
+
+  // 6. Water splash: Take a bath / bucket wash
+  public playSplash() {
+    if (!this.settings.sfxEnabled || this.settings.sfxVolume <= 0) return;
+
+    // Optional audio file attempt with seamless procedural fallback
+    try {
+      const audio = new Audio('/audio/sfx_splash.mp3');
+      audio.volume = this.settings.sfxVolume * 0.5;
+      const playPromise = audio.play();
+      if (playPromise) {
+        playPromise.catch(() => {
+          this.synthesizeSplash();
+        });
+        return;
+      }
+    } catch {
+      // fallback
+    }
+
+    this.synthesizeSplash();
+  }
+
+  private synthesizeSplash() {
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const vol = this.settings.sfxVolume * 0.4;
+
+      // Noise burst for splashing water spray
+      const bufferSize = Math.floor(ctx.sampleRate * 0.35);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, now);
+      filter.frequency.exponentialRampToValueAtTime(320, now + 0.3);
+      filter.Q.setValueAtTime(2.2, now);
+
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(vol * 0.8, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+      whiteNoise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+
+      whiteNoise.start(now);
+      whiteNoise.stop(now + 0.35);
+
+      // 2 Droplet bubble blips for wet splash texture
+      const droplets = [980, 1340, 750];
+      droplets.forEach((freq, idx) => {
+        const dropOsc = ctx.createOscillator();
+        const dropGain = ctx.createGain();
+
+        dropOsc.type = 'sine';
+        dropOsc.frequency.setValueAtTime(freq, now + 0.05 + idx * 0.06);
+        dropOsc.frequency.exponentialRampToValueAtTime(freq * 0.45, now + 0.14 + idx * 0.06);
+
+        dropGain.gain.setValueAtTime(0, now + 0.05 + idx * 0.06);
+        dropGain.gain.linearRampToValueAtTime(vol * 0.5, now + 0.06 + idx * 0.06);
+        dropGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16 + idx * 0.06);
+
+        dropOsc.connect(dropGain);
+        dropGain.connect(ctx.destination);
+
+        dropOsc.start(now + 0.05 + idx * 0.06);
+        dropOsc.stop(now + 0.18 + idx * 0.06);
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  // 7. Success Chime: Need/Interaction fulfilled (Ascending celestial bells)
+  public playChime() {
+    if (!this.settings.sfxEnabled || this.settings.sfxVolume <= 0) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const vol = this.settings.sfxVolume * 0.35;
+
+      // Bright ascending chime chord: E5 -> G#5 -> B5 -> E6
+      const chord = [659.25, 830.61, 987.77, 1318.51];
+
+      chord.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.055);
+
+        gain.gain.setValueAtTime(0, now + idx * 0.055);
+        gain.gain.linearRampToValueAtTime(vol, now + idx * 0.055 + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.055 + 0.65);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + idx * 0.055);
+        osc.stop(now + idx * 0.055 + 0.7);
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  public playSuccess() {
+    this.playChime();
+  }
+
+  // 8. Broom sweep / cleaning rustle
+  public playSweep() {
+    if (!this.settings.sfxEnabled || this.settings.sfxVolume <= 0) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const vol = this.settings.sfxVolume * 0.32;
+
+      // Dual broom strokes (swish... swish)
+      [0, 0.22].forEach((offset) => {
+        const bufferSize = Math.floor(ctx.sampleRate * 0.18);
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const source = ctx.createBufferSource();
+        source.buffer = noiseBuffer;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(950, now + offset);
+        filter.frequency.linearRampToValueAtTime(450, now + offset + 0.16);
+        filter.Q.setValueAtTime(1.8, now + offset);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, now + offset);
+        gain.gain.linearRampToValueAtTime(vol, now + offset + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.17);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+
+        source.start(now + offset);
+        source.stop(now + offset + 0.18);
+      });
+    } catch {
+      // ignore
+    }
+  }
 }
 
 export const soundManager = new SoundManager();
